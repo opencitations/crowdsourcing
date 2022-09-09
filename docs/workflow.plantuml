@@ -1,0 +1,21 @@
+@startuml
+!theme mars
+actor User
+database GitHub
+control "CSV Validator"
+database "OC server"
+
+User -> GitHub: submit issue
+GitHub -> "CSV Validator": trigger workflow
+alt invalid CSV
+"CSV Validator" -> GitHub: answer the issue \n with a report 
+else
+"CSV Validator" -> GitHub: close the issue
+end
+GitHub -> "OC server": trigger workflow
+"OC server" -> "OC server": store the issue
+"OC server" -> "OC server": run the ingestion process
+group Once a day
+GitHub -> GitHub: delete all closed issues
+end
+@enduml
