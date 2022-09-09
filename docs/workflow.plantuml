@@ -4,6 +4,7 @@ actor User
 database GitHub
 control "CSV Validator"
 database "OC server"
+database Zenodo
 
 User -> GitHub: submit issue
 GitHub -> "CSV Validator": trigger workflow
@@ -17,5 +18,8 @@ GitHub -> "OC server": trigger workflow
 "OC server" -> "OC server": run the ingestion process
 group Once a day
 GitHub -> GitHub: delete all closed issues
+end
+group Once a year
+"OC server" -> Zenodo: store old issues
 end
 @enduml
