@@ -65,12 +65,13 @@ if __name__ == "__main__":
         ["gh", "issue", "list", "--state", "closed", "--label", "to be processed", "--json", "body,number", "--repo", "https://github.com/arcangelo7/issues"], 
         capture_output=True, text=True)
     issues = json.loads(output.stdout)
-    is_unix = platform in {"linux", "linux2", "darwin"}
-    call_python = "python3" if is_unix else "python"
-    store_meta_input(issues)
-    os.chdir("oc_meta/")
-    multiprocess_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.prepare_multiprocess", "-c", "../meta_config.yaml"], capture_output=True, text=True)
-    meta_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.meta_process", "-c", "../meta_config.yaml"], capture_output=True, text=True)
-    update_labels(multiprocess_output, meta_output, issues)
-    shutil.rmtree("../meta_input")
-    shutil.rmtree("../meta_input_old")
+    if issues:
+        is_unix = platform in {"linux", "linux2", "darwin"}
+        call_python = "python3" if is_unix else "python"
+        store_meta_input(issues)
+        os.chdir("oc_meta/")
+        multiprocess_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.prepare_multiprocess", "-c", "../meta_config.yaml"], capture_output=True, text=True)
+        meta_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.meta_process", "-c", "../meta_config.yaml"], capture_output=True, text=True)
+        update_labels(multiprocess_output, meta_output, issues)
+        shutil.rmtree("../meta_input")
+        shutil.rmtree("../meta_input_old")
