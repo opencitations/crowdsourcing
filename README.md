@@ -49,7 +49,7 @@ The body consists of the metadata of the article and the citations in CSV. The t
 
 ## Next steps
 
-OpenCitations will then ingest the deposits every Saturday at 00:00 and mark the issues as 'done'. The deposits could also be rejected by marking the issues as 'rejected'.
+OpenCitations will then ingest the deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could also be rejected by marking the issues as 'rejected'.
 
 ## History and provenance
 
