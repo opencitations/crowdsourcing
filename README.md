@@ -6,7 +6,7 @@ In this repository, trusted agents can deposit citations and bibliographic metad
 
 To make a deposit, open an issue to this repository following the format that will be described below.
 
-An example can be found at: https://github.com/GaziYucel/open_citations_croci_depot/issues/15
+An example can be found at: https://github.com/opencitations/crowdsourcing/issues/1
 
 **issue:title**
 
