@@ -1,0 +1,15 @@
+name: Issues manager
+on: workflow_dispatch
+jobs:
+  Validate:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      ZENODO: ${{ secrets.ZENODO }}
+    steps:
+      - name: List files in the repository
+        uses: actions/checkout@v3.0.2
+      - name: Install the dependencies
+        run: pip3 install -r requirements.txt
+      - name: Process the issue
+        run: python3 process_issues.py
