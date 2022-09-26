@@ -47,6 +47,10 @@ The body consists of the metadata of the article and the citations in CSV. The t
 "doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1016/0021-9991(82)90026-2",""
 ```
 
+The complete documentation on how to structure tables for metadata and citations can be read here, while for a shortened version please consult the following proceeding article:
+
+> Massari, A., & Heibi, I. (2022). How to structure citations data and bibliographic metadata in the OpenCitations accepted format. Proceedings of the Workshop on Understanding LIterature References in Academic Full TExt, 3220. [http://ceur-ws.org/Vol-3220/invited-talk2.pdf](http://ceur-ws.org/Vol-3220/invited-talk2.pdf)
+
 ## Next steps
 
 OpenCitations will then ingest the deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could also be rejected by marking the issues as 'rejected'.
