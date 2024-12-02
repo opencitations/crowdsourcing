@@ -44,7 +44,8 @@ The body consists of the metadata of the article and the citations in CSV. The t
 "doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(79)90051-2"
 "doi:10.1007/s42835-022-01029-y","doi:10.1088/0022-3727/39/14/017"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-663-14090-0"
-"doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(82)90026-2"```
+"doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(82)90026-2"
+```
 
 The complete documentation on how to structure tables for metadata and citations can be read in [`docs/csv_documentation.pdf`](https://github.com/opencitations/crowdsourcing/blob/main/docs/csv_documentation.pdf), while for a shortened version please consult the following proceeding article:
 
