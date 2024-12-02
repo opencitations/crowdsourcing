@@ -32,28 +32,34 @@ The body consists of the metadata of the article and the citations in CSV. The t
 "","Space-charge effects in high-density plasmas","Morrow, R","1982-6","Journal of Computational Physics [issn:0021-9991]","46","3","454-461","journal article","Elsevier BV [crossref:78]",""
 "doi:10.1007/s42835-022-01029-y","Numerical Simulation of Gas Discharge Using SUPG-FEM-FCT Method with Adaptive Mesh Refinement","Choi, Chan Young; Park, Il Han [orcid:0000-0002-9383-6856]","2022-2-28","Journal of Electrical Engineering & Technology [issn:1975-0102 issn:2093-7423]","17","3","1873-1881","journal article","Springer Science and Business Media LLC [crossref:297]",""
 ===###===@@@===
-"citing_id","citing_publication_date","cited_id","cited_publication_date"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1007/978-3-662-07918-8_3","2004"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1016/0021-9991(73)90147-2","1973-1"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1109/20.877674","2000-7"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1109/tps.2003.815469",""
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1109/tpwrd.2011.2172694","2012-1"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1007/978-1-4615-3786-1_11","1990"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1088/0022-3727/13/1/002","1980-1-14"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1109/27.106800","1991-4"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1016/0021-9991(79)90051-2","1979-6"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1088/0022-3727/39/14/017",""
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1007/978-3-663-14090-0","1985"
-"doi:10.1007/s42835-022-01029-y","2022-02-28","doi:10.1016/0021-9991(82)90026-2",""
-```
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-662-07918-8_3"
+"doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(73)90147-2"
+"doi:10.1007/s42835-022-01029-y","doi:10.1109/20.877674"
+"doi:10.1007/s42835-022-01029-y","doi:10.1109/tps.2003.815469"
+"doi:10.1007/s42835-022-01029-y","doi:10.1109/tpwrd.2011.2172694"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-1-4615-3786-1_11"
+"doi:10.1007/s42835-022-01029-y","doi:10.1088/0022-3727/13/1/002"
+"doi:10.1007/s42835-022-01029-y","doi:10.1109/27.106800"
+"doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(79)90051-2"
+"doi:10.1007/s42835-022-01029-y","doi:10.1088/0022-3727/39/14/017"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-663-14090-0"
+"doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(82)90026-2"```
 
 The complete documentation on how to structure tables for metadata and citations can be read in [`docs/csv_documentation.pdf`](https://github.com/opencitations/crowdsourcing/blob/main/docs/csv_documentation.pdf), while for a shortened version please consult the following proceeding article:
 
 > Massari, A., & Heibi, I. (2022). How to structure citations data and bibliographic metadata in the OpenCitations accepted format. Proceedings of the Workshop on Understanding LIterature References in Academic Full TExt, 3220. [http://ceur-ws.org/Vol-3220/invited-talk2.pdf](http://ceur-ws.org/Vol-3220/invited-talk2.pdf)
 
+## Data Validation
+
+When you submit an issue, the data is automatically validated using the [oc_validator](https://github.com/opencitations/oc_validator) library. This validation happens immediately after submission and checks if the provided data follows the required syntax and format. If the data is invalid, the issue will be labeled as 'invalid' and you will receive immediate feedback about the validation errors.
+
 ## Next steps
 
-OpenCitations will then ingest the deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could also be rejected by marking the issues as 'rejected'.
+OpenCitations will ingest valid deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could be:
+- Marked as 'done' if successfully processed
+- Marked as 'rejected' if they don't meet the requirements
+- Marked as 'invalid' if they fail the automatic syntax validation
 
 ## History and provenance
 
