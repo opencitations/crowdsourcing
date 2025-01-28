@@ -18,6 +18,9 @@ import os
 import time
 import unittest
 from unittest.mock import MagicMock, patch
+import json
+import requests
+from datetime import datetime
 
 from process_issues import (
     _validate_title,
@@ -27,6 +30,10 @@ from process_issues import (
     is_in_safe_list,
     process_open_issues,
     validate,
+    get_data_to_store,
+    _create_deposition_resource,
+    _upload_data,
+    deposit_on_zenodo,
 )
 from requests.exceptions import RequestException
 
@@ -133,6 +140,70 @@ WRONG_SEPARATOR
         is_valid, message = validate(title, body)
         self.assertFalse(is_valid)
         self.assertIn("could not be processed as a CSV", message)
+
+    def test_get_data_to_store_valid_input(self):
+        """Test get_data_to_store with valid input data"""
+        title = "deposit journal.com doi:10.1234/test"
+        body = """"id","title"
+"1","Test Title"
+===###===@@@===
+"citing","cited"
+"id1","id2"\""""
+        created_at = "2024-01-01T00:00:00Z"
+        had_primary_source = "https://github.com/test/1"
+        user_id = 12345
+
+        result = get_data_to_store(title, body, created_at, had_primary_source, user_id)
+
+        self.assertEqual(result["data"]["title"], title)
+        self.assertEqual(len(result["data"]["metadata"]), 1)
+        self.assertEqual(len(result["data"]["citations"]), 1)
+        self.assertEqual(result["provenance"]["generatedAtTime"], created_at)
+        self.assertEqual(result["provenance"]["wasAttributedTo"], user_id)
+        self.assertEqual(result["provenance"]["hadPrimarySource"], had_primary_source)
+
+    def test_get_data_to_store_invalid_csv(self):
+        """Test get_data_to_store with invalid CSV format"""
+        title = "deposit journal.com doi:10.1234/test"
+        # CSV con una sola sezione (manca il separatore)
+        body = """"id","title"
+"1","Test Title"\""""
+
+        with self.assertRaises(ValueError) as context:
+            get_data_to_store(
+                title, body, "2024-01-01T00:00:00Z", "https://github.com/test/1", 12345
+            )
+
+        # Verifichiamo che l'errore contenga il messaggio corretto
+        self.assertIn("Failed to process issue data", str(context.exception))
+
+    def test_get_data_to_store_empty_sections(self):
+        """Test get_data_to_store with empty metadata or citations sections"""
+        title = "deposit journal.com doi:10.1234/test"
+        body = """"id","title"
+===###===@@@===
+"citing","cited"\""""
+
+        with self.assertRaises(ValueError) as context:
+            get_data_to_store(
+                title, body, "2024-01-01T00:00:00Z", "https://github.com/test/1", 12345
+            )
+
+        self.assertIn("Empty metadata or citations section", str(context.exception))
+
+    def test_get_data_to_store_invalid_separator(self):
+        """Test get_data_to_store with invalid separator in body"""
+        title = "deposit journal.com doi:10.1234/test"
+        body = """"id","title"
+INVALID_SEPARATOR
+"citing","cited"\""""
+
+        with self.assertRaises(ValueError) as context:
+            get_data_to_store(
+                title, body, "2024-01-01T00:00:00Z", "https://github.com/test/1", 12345
+            )
+
+        self.assertIn("Failed to process issue data", str(context.exception))
 
 
 class TestUserValidation(unittest.TestCase):
@@ -401,6 +472,296 @@ class TestAnswerFunction(unittest.TestCase):
                 message="Test message",
                 issue_number=self.issue_number,
             )
+
+
+class TestZenodoDeposit(unittest.TestCase):
+    """Test Zenodo deposit functionality"""
+
+    def setUp(self):
+        """Set up test environment before each test"""
+        self.env_patcher = patch.dict("os.environ", {"ZENODO": "fake-token"})
+        self.env_patcher.start()
+
+        self.test_data = [
+            {
+                "data": {
+                    "title": "test deposit",
+                    "metadata": [{"id": "1", "title": "Test"}],
+                    "citations": [{"citing": "1", "cited": "2"}],
+                },
+                "provenance": {
+                    "generatedAtTime": "2024-01-01T00:00:00Z",
+                    "wasAttributedTo": 12345,
+                    "hadPrimarySource": "https://github.com/test/1",
+                },
+            }
+        ]
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.env_patcher.stop()
+        if os.path.exists("data_to_store.json"):
+            os.remove("data_to_store.json")
+
+    @patch("requests.post")
+    def test_create_deposition_resource(self, mock_post):
+        """Test creation of Zenodo deposition resource"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": "12345",
+            "links": {"bucket": "https://zenodo.org/api/bucket/12345"},
+        }
+        mock_post.return_value = mock_response
+
+        deposition_id, bucket = _create_deposition_resource("2024-01-01")
+
+        self.assertEqual(deposition_id, "12345")
+        self.assertEqual(bucket, "https://zenodo.org/api/bucket/12345")
+
+        # Verify API call
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+
+        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["headers"], {"Content-Type": "application/json"})
+        self.assertEqual(kwargs["timeout"], 30)
+
+        # Verify metadata
+        metadata = kwargs["json"]["metadata"]
+        self.assertEqual(metadata["upload_type"], "dataset")
+        self.assertEqual(metadata["publication_date"], "2024-01-01")
+        self.assertIn("OpenCitations crowdsourcing", metadata["title"])
+
+    @patch("requests.put")
+    def test_upload_data(self, mock_put):
+        """Test uploading data file to Zenodo"""
+        mock_put.return_value.status_code = 200
+
+        # Create test file
+        with open("data_to_store.json", "w") as f:
+            json.dump({"test": "data"}, f)
+
+        _upload_data("2024-01-01", "https://zenodo.org/api/bucket/12345")
+
+        # Verify API call
+        mock_put.assert_called_once()
+        args, kwargs = mock_put.call_args
+
+        self.assertEqual(
+            args[0],
+            "https://zenodo.org/api/bucket/12345/2024-01-01_weekly_deposit.json",
+        )
+        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["timeout"], 30)
+
+    @patch("process_issues._create_deposition_resource")
+    @patch("process_issues._upload_data")
+    @patch("requests.post")
+    def test_deposit_on_zenodo(self, mock_post, mock_upload, mock_create):
+        """Test full Zenodo deposit process"""
+        # Setup mocks
+        mock_create.return_value = ("12345", "https://zenodo.org/api/bucket/12345")
+        mock_post.return_value.status_code = 200
+
+        deposit_on_zenodo(self.test_data)
+
+        # Verify API calls order and parameters
+        mock_create.assert_called_once_with(datetime.now().strftime("%Y-%m-%d"))
+        mock_upload.assert_called_once_with(
+            datetime.now().strftime("%Y-%m-%d"), "https://zenodo.org/api/bucket/12345"
+        )
+
+        # Verify publish request
+        mock_post.assert_called_once()
+        args, kwargs = mock_post.call_args
+        self.assertEqual(
+            args[0],
+            "https://zenodo.org/api/deposit/depositions/12345/actions/publish",
+        )
+        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["timeout"], 30)
+
+        # Verify cleanup happened
+        self.assertFalse(os.path.exists("data_to_store.json"))
+
+    @patch("requests.post")
+    def test_create_deposition_resource_error(self, mock_post):
+        """Test error handling in deposition creation"""
+        mock_post.side_effect = requests.RequestException("API Error")
+
+        with self.assertRaises(requests.RequestException):
+            _create_deposition_resource("2024-01-01")
+
+    @patch("requests.put")
+    def test_upload_data_error(self, mock_put):
+        """Test error handling in data upload"""
+        mock_put.side_effect = requests.RequestException("Upload Error")
+
+        with open("data_to_store.json", "w") as f:
+            json.dump({"test": "data"}, f)
+
+        with self.assertRaises(requests.RequestException):
+            _upload_data("2024-01-01", "https://zenodo.org/api/bucket/12345")
+
+    @patch("process_issues._create_deposition_resource")
+    def test_deposit_on_zenodo_create_error(self, mock_create):
+        """Test error handling in full deposit process - creation error"""
+        mock_create.side_effect = requests.RequestException("Creation Error")
+
+        with self.assertRaises(requests.RequestException):
+            deposit_on_zenodo(self.test_data)
+
+        # Verify cleanup happened
+        self.assertFalse(os.path.exists("data_to_store.json"))
+
+
+class TestProcessOpenIssues(unittest.TestCase):
+    """Test the main process_open_issues function"""
+
+    def setUp(self):
+        """Set up test environment"""
+        self.env_patcher = patch.dict(
+            "os.environ", {"GH_TOKEN": "fake-gh-token", "ZENODO": "fake-zenodo-token"}
+        )
+        self.env_patcher.start()
+
+        # Sample issue data with properly formatted CSV and valid DOI
+        self.sample_issue = {
+            "title": "deposit journal.com doi:10.1007/s42835-022-01029-y",
+            "body": """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\"""",
+            "number": "1",
+            "author": {"login": "test-user"},
+            "createdAt": "2024-01-01T00:00:00Z",
+            "url": "https://github.com/test/1",
+        }
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.env_patcher.stop()
+        if os.path.exists("data_to_store.json"):
+            os.remove("data_to_store.json")
+
+    @patch("process_issues.get_open_issues")
+    @patch("process_issues.get_user_id")
+    @patch("process_issues.is_in_safe_list")
+    @patch("process_issues.deposit_on_zenodo")
+    @patch("process_issues.answer")
+    def test_process_valid_authorized_issue(
+        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
+    ):
+        """Test processing a valid issue from authorized user"""
+        # Setup mocks
+        mock_get_issues.return_value = [self.sample_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+
+        # Run function
+        process_open_issues()
+
+        # Verify user validation
+        mock_user_id.assert_called_once_with("test-user")
+        mock_safe_list.assert_called_once_with(12345)
+
+        # Verify issue was processed
+        mock_answer.assert_called_once()
+        args, kwargs = mock_answer.call_args
+        self.assertTrue(args[0])  # is_valid
+        self.assertIn("Thank you", args[1])  # message
+        self.assertEqual(args[2], "1")  # issue_number
+        self.assertTrue(kwargs["is_authorized"])
+
+        # Verify data was deposited
+        mock_deposit.assert_called_once()
+        args, kwargs = mock_deposit.call_args
+        deposited_data = args[0][0]
+        self.assertEqual(deposited_data["data"]["title"], self.sample_issue["title"])
+        self.assertEqual(deposited_data["provenance"]["wasAttributedTo"], 12345)
+
+    @patch("process_issues.get_open_issues")
+    @patch("process_issues.get_user_id")
+    @patch("process_issues.is_in_safe_list")
+    @patch("process_issues.deposit_on_zenodo")
+    @patch("process_issues.answer")
+    def test_process_unauthorized_user(
+        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
+    ):
+        """Test processing an issue from unauthorized user"""
+        # Setup mocks
+        mock_get_issues.return_value = [self.sample_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = False
+
+        # Run function
+        process_open_issues()
+
+        # Verify user was checked but not authorized
+        mock_user_id.assert_called_once_with("test-user")
+        mock_safe_list.assert_called_once_with(12345)
+
+        # Verify appropriate response
+        mock_answer.assert_called_once()
+        args, kwargs = mock_answer.call_args
+        self.assertFalse(args[0])  # is_valid
+        self.assertIn("register as a trusted user", args[1])  # message
+        self.assertEqual(args[2], "1")  # issue_number
+        self.assertFalse(kwargs["is_authorized"])
+
+        # Verify no deposit was made
+        mock_deposit.assert_not_called()
+
+    @patch("process_issues.get_open_issues")
+    @patch("process_issues.get_user_id")
+    @patch("process_issues.is_in_safe_list")
+    @patch("process_issues.deposit_on_zenodo")
+    @patch("process_issues.answer")
+    def test_process_invalid_issue(
+        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
+    ):
+        """Test processing an invalid issue from authorized user"""
+        # Create invalid issue (wrong format)
+        invalid_issue = self.sample_issue.copy()
+        invalid_issue["body"] = "Invalid body without separator"
+
+        # Setup mocks
+        mock_get_issues.return_value = [invalid_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+
+        # Run function
+        process_open_issues()
+
+        # Verify response for invalid issue
+        mock_answer.assert_called_once()
+        args, kwargs = mock_answer.call_args
+        self.assertFalse(args[0])  # is_valid
+        self.assertIn("separator", args[1])  # message
+        self.assertEqual(args[2], "1")  # issue_number
+        self.assertTrue(kwargs["is_authorized"])
+
+        # Verify no deposit was made
+        mock_deposit.assert_not_called()
+
+    @patch("process_issues.get_open_issues")
+    def test_process_no_issues(self, mock_get_issues):
+        """Test processing when no issues are present"""
+        mock_get_issues.return_value = []
+
+        process_open_issues()
+        mock_get_issues.assert_called_once()
+
+    @patch("process_issues.get_open_issues")
+    def test_process_error_handling(self, mock_get_issues):
+        """Test error handling in process_open_issues"""
+        mock_get_issues.side_effect = Exception("Test error")
+
+        with self.assertRaises(Exception) as context:
+            process_open_issues()
+
+        self.assertEqual(str(context.exception), "Test error")
 
 
 if __name__ == "__main__":  # pragma: no cover

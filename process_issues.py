@@ -20,7 +20,6 @@ import io
 import json
 import os
 import re
-import subprocess
 import time
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -217,77 +216,172 @@ def get_data_to_store(
     had_primary_source: str,
     user_id: int,
 ) -> dict:
-    split_data = issue_body.split("===###===@@@===")
-    metadata = list(csv.DictReader(io.StringIO(split_data[0].strip())))
-    citations = list(csv.DictReader(io.StringIO(split_data[1].strip())))
-    return {
-        "data": {"title": issue_title, "metadata": metadata, "citations": citations},
-        "provenance": {
-            "generatedAtTime": created_at,
-            "wasAttributedTo": user_id,
-            "hadPrimarySource": had_primary_source,
-        },
+    """Get structured data from issue content for storage.
+
+    Args:
+        issue_title: Title of the GitHub issue
+        issue_body: Body content of the GitHub issue
+        created_at: ISO timestamp when issue was created
+        had_primary_source: URL of the original issue
+        user_id: GitHub user ID of issue author
+
+    Returns:
+        Dictionary containing structured issue data and provenance information
+
+    Raises:
+        ValueError: If issue body cannot be split or CSV data is invalid
+    """
+    try:
+        # Split and clean the data sections
+        metadata_csv, citations_csv = [
+            section.strip() for section in issue_body.split("===###===@@@===")
+        ]
+
+        # Parse CSVs into dictionaries with error handling
+        try:
+            metadata = list(csv.DictReader(io.StringIO(metadata_csv)))
+            citations = list(csv.DictReader(io.StringIO(citations_csv)))
+        except csv.Error as e:
+            raise ValueError(f"Invalid CSV format in issue body: {str(e)}")
+
+        # Validate required data
+        if not metadata or not citations:
+            raise ValueError("Empty metadata or citations section")
+
+        return {
+            "data": {
+                "title": issue_title,
+                "metadata": metadata,
+                "citations": citations,
+            },
+            "provenance": {
+                "generatedAtTime": created_at,
+                "wasAttributedTo": user_id,
+                "hadPrimarySource": had_primary_source,
+            },
+        }
+    except Exception as e:
+        raise ValueError(f"Failed to process issue data: {str(e)}")
+
+
+def _create_deposition_resource(today: str) -> Tuple[str, str]:
+    """Create a new Zenodo deposition for weekly data.
+
+    Args:
+        today: Current date in YYYY-MM-DD format
+
+    Returns:
+        Tuple containing (deposition_id, bucket_url)
+
+    Raises:
+        requests.RequestException: If the Zenodo API request fails
+    """
+    headers = {"Content-Type": "application/json"}
+
+    metadata = {
+        "metadata": {
+            "upload_type": "dataset",
+            "publication_date": today,
+            "title": f"OpenCitations crowdsourcing: deposits of the week before {today}",
+            "creators": [
+                {
+                    "name": "crocibot",
+                    "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
+                }
+            ],
+            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every week. This upload contains the data of deposit issues published in the week before {today}.",
+            "access_right": "open",
+            "license": "CC0-1.0",
+            "prereserve_doi": True,
+            "keywords": [
+                "OpenCitations",
+                "crowdsourcing",
+                "provenance",
+                "GitHub issues",
+            ],
+            "related_identifiers": [
+                {
+                    "identifier": "https://github.com/opencitations/crowdsourcing",
+                    "relation": "isDerivedFrom",
+                    "resource_type": "dataset",
+                }
+            ],
+            "version": "1.0.0",
+        }
     }
 
-
-def __create_deposition_resource(today: str) -> Tuple[str, str]:
-    r = requests.post(
+    response = requests.post(
         "https://zenodo.org/api/deposit/depositions",
         params={"access_token": os.environ["ZENODO"]},
-        json={
-            "metadata": {
-                "upload_type": "dataset",
-                "publication_date": today,
-                "title": f"OpenCitations crowdsourcing: deposits of the week before {today}",
-                "creators": [
-                    {
-                        "name": "crocibot",
-                        "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
-                    }
-                ],
-                "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every week. This upload contains the data of deposit issues published in the week before {today}.",
-                "access_right": "open",
-                "license": "CC0-1.0",
-                "prereserve_doi": True,
-                "keywords": [
-                    "OpenCitations",
-                    "crowdsourcing",
-                    "provenance",
-                    "GitHub issues",
-                ],
-                "related_identifiers": [
-                    {
-                        "identifier": "https://github.com/opencitations/crowdsourcing",
-                        "relation": "isDerivedFrom",
-                        "resource_type": "dataset",
-                    }
-                ],
-                "version": "1.0.0",
-            }
-        },
-        headers={"Content-Type": "application/json"},
+        json=metadata,
+        headers=headers,
+        timeout=30,
     )
-    return r.json()["id"], r.json()["links"]["bucket"]
+
+    response.raise_for_status()
+    data = response.json()
+
+    return data["id"], data["links"]["bucket"]
 
 
-def __upload_data(today: str, bucket: str) -> None:
+def _upload_data(today: str, bucket: str) -> None:
+    """Upload the weekly data file to Zenodo bucket.
+
+    Args:
+        today: Current date in YYYY-MM-DD format
+        bucket: Zenodo bucket URL for upload
+
+    Raises:
+        requests.RequestException: If the upload fails
+        FileNotFoundError: If data file is missing
+    """
+    filename = f"{today}_weekly_deposit.json"
+
     with open("data_to_store.json", "rb") as fp:
-        r = requests.put(
-            "%s/%s" % (bucket, f"{today}_weekly_deposit.json"),
+        response = requests.put(
+            f"{bucket}/{filename}",
             data=fp,
             params={"access_token": os.environ["ZENODO"]},
+            timeout=30,
         )
-    print(r.json())
+        response.raise_for_status()
 
 
 def deposit_on_zenodo(data_to_store: List[dict]) -> None:
-    with open("data_to_store.json", "w") as outfile:
-        json.dump(data_to_store, outfile)
+    """Store weekly data on Zenodo with proper metadata.
+
+    Args:
+        data_to_store: List of dictionaries containing the weekly data
+
+    Raises:
+        requests.RequestException: If any Zenodo API request fails
+        IOError: If there are file operation errors
+    """
     today = datetime.now().strftime("%Y-%m-%d")
-    deposition_id, bucket = __create_deposition_resource(today)
-    __upload_data(today, bucket)
-    # r = requests.post('https://zenodo.org/api/deposit/depositions/%s/actions/publish' % deposition_id,
-    #                     params={'access_token': os.environ["ZENODO"]} )
+
+    try:
+        # Save data to temporary file
+        with open("data_to_store.json", "w", encoding="utf-8") as outfile:
+            json.dump(data_to_store, outfile, ensure_ascii=False, indent=2)
+
+        # Create deposition and get upload location
+        deposition_id, bucket = _create_deposition_resource(today)
+
+        # Upload the data file
+        _upload_data(today, bucket)
+
+        # Publish the deposition
+        response = requests.post(
+            f"https://zenodo.org/api/deposit/depositions/{deposition_id}/actions/publish",
+            params={"access_token": os.environ["ZENODO"]},
+            timeout=30,
+        )
+        response.raise_for_status()
+
+    finally:
+        # Cleanup temporary file
+        if os.path.exists("data_to_store.json"):
+            os.remove("data_to_store.json")
 
 
 def is_in_safe_list(user_id: int) -> bool:
@@ -406,8 +500,8 @@ def process_open_issues() -> None:
                     )
                 )
 
-        # if data_to_store:
-        #     deposit_on_zenodo(data_to_store)
+        if data_to_store:
+            deposit_on_zenodo(data_to_store)
 
     except Exception as e:
         print(f"Error processing issues: {e}")
