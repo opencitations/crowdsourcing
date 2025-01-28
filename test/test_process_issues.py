@@ -15,20 +15,20 @@
 # SOFTWARE.
 
 import os
-import unittest
-from unittest.mock import patch, MagicMock
-import json
-from requests.exceptions import RequestException
 import time
+import unittest
+from unittest.mock import MagicMock, patch
 
 from process_issues import (
     _validate_title,
+    answer,
+    get_open_issues,
     get_user_id,
     is_in_safe_list,
-    validate,
-    get_open_issues,
     process_open_issues,
+    validate,
 )
+from requests.exceptions import RequestException
 
 
 class TestTitleValidation(unittest.TestCase):
@@ -256,6 +256,151 @@ class TestGitHubAPI(unittest.TestCase):
 
         self.assertIn("Failed to fetch issues after 3 attempts", str(context.exception))
         self.assertEqual(mock_get.call_count, 3)  # Verify 3 retry attempts
+
+
+class TestAnswerFunction(unittest.TestCase):
+    """Test the answer function that updates GitHub issues"""
+
+    def setUp(self):
+        """Set up test environment before each test"""
+        self.base_url = (
+            "https://api.github.com/repos/opencitations/crowdsourcing/issues"
+        )
+        self.headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer fake-token",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        self.issue_number = "123"
+
+        # Setup environment variable
+        self.env_patcher = patch.dict("os.environ", {"GH_TOKEN": "fake-token"})
+        self.env_patcher.start()
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.env_patcher.stop()
+
+    @patch("requests.post")
+    @patch("requests.patch")
+    def test_answer_valid_authorized(self, mock_patch, mock_post):
+        """Test answering a valid issue from authorized user"""
+        # Setup mock responses
+        mock_post.return_value.status_code = 201
+        mock_patch.return_value.status_code = 200
+
+        # Call function
+        answer(
+            is_valid=True,
+            message="Thank you for your contribution!",
+            issue_number=self.issue_number,
+            is_authorized=True,
+        )
+
+        # Verify label API call
+        mock_post.assert_any_call(
+            f"{self.base_url}/{self.issue_number}/labels",
+            headers=self.headers,
+            json={"labels": ["to be processed"]},
+            timeout=30,
+        )
+
+        # Verify comment API call
+        mock_post.assert_any_call(
+            f"{self.base_url}/{self.issue_number}/comments",
+            headers=self.headers,
+            json={"body": "Thank you for your contribution!"},
+            timeout=30,
+        )
+
+        # Verify issue closure API call
+        mock_patch.assert_called_once_with(
+            f"{self.base_url}/{self.issue_number}",
+            headers=self.headers,
+            json={"state": "closed"},
+            timeout=30,
+        )
+
+    @patch("requests.post")
+    @patch("requests.patch")
+    def test_answer_invalid_authorized(self, mock_patch, mock_post):
+        """Test answering an invalid issue from authorized user"""
+        answer(
+            is_valid=False,
+            message="Invalid format",
+            issue_number=self.issue_number,
+            is_authorized=True,
+        )
+
+        # Verify correct label was used
+        mock_post.assert_any_call(
+            f"{self.base_url}/{self.issue_number}/labels",
+            headers=self.headers,
+            json={"labels": ["invalid"]},
+            timeout=30,
+        )
+
+    @patch("requests.post")
+    @patch("requests.patch")
+    def test_answer_unauthorized(self, mock_patch, mock_post):
+        """Test answering an issue from unauthorized user"""
+        answer(
+            is_valid=False,
+            message="Unauthorized user",
+            issue_number=self.issue_number,
+            is_authorized=False,
+        )
+
+        # Verify correct label was used
+        mock_post.assert_any_call(
+            f"{self.base_url}/{self.issue_number}/labels",
+            headers=self.headers,
+            json={"labels": ["rejected"]},
+            timeout=30,
+        )
+
+    @patch("requests.post")
+    def test_answer_label_error(self, mock_post):
+        """Test handling of API error when adding label"""
+        mock_post.side_effect = RequestException("Network error")
+
+        with self.assertRaises(RequestException):
+            answer(
+                is_valid=True,
+                message="Test message",
+                issue_number=self.issue_number,
+            )
+
+    @patch("requests.post")
+    @patch("requests.patch")
+    def test_answer_comment_error(self, mock_patch, mock_post):
+        """Test handling of API error when adding comment"""
+        # First post (label) succeeds, second post (comment) fails
+        mock_post.side_effect = [
+            MagicMock(status_code=201),
+            RequestException("Network error"),
+        ]
+
+        with self.assertRaises(RequestException):
+            answer(
+                is_valid=True,
+                message="Test message",
+                issue_number=self.issue_number,
+            )
+
+    @patch("requests.post")
+    @patch("requests.patch")
+    def test_answer_close_error(self, mock_patch, mock_post):
+        """Test handling of API error when closing issue"""
+        mock_post.return_value = MagicMock(status_code=201)
+        mock_patch.side_effect = RequestException("Network error")
+
+        with self.assertRaises(RequestException):
+            answer(
+                is_valid=True,
+                message="Test message",
+                issue_number=self.issue_number,
+            )
 
 
 if __name__ == "__main__":  # pragma: no cover

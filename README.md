@@ -63,10 +63,14 @@ When you submit an issue, the data is automatically validated using the [oc_vali
 
 ## Next steps
 
-OpenCitations will ingest valid deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could be:
-- Marked as 'done' if successfully processed
-- Marked as 'rejected' if they don't meet the requirements
-- Marked as 'invalid' if they fail the automatic syntax validation
+OpenCitations will ingest valid deposits every Saturday at 00:01. The issues will be labeled as follows:
+
+- **to be processed**: The issue is valid and will be processed (user is authorized and data format is correct)
+- **rejected**: The user is not in the safe list of trusted agents. Please contact OpenCitations at <contact@opencitations.net> to be added to the safe list
+- **invalid**: The data format is incorrect or validation failed (e.g. wrong CSV structure, invalid identifiers)
+- **done**: The issue has been successfully processed and ingested
+
+Note: Only users in the safe list can make deposits. If you're not in the safe list yet, your issues will be automatically labeled as "rejected". To be added to the safe list, please contact OpenCitations at <contact@opencitations.net>.
 
 ## History and provenance
 

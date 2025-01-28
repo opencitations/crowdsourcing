@@ -117,13 +117,63 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         )
 
 
-def answer(is_valid: bool, message: str, issue_number: str) -> None:
-    if is_valid:
-        label = "to be processed"
-    else:
+def answer(
+    is_valid: bool, message: str, issue_number: str, is_authorized: bool = True
+) -> None:
+    """Update issue status and add comment using GitHub REST API.
+
+    Args:
+        is_valid: Whether the issue content is valid
+        message: Comment message to add
+        issue_number: GitHub issue number to update
+        is_authorized: Whether the user is authorized (in safe list)
+    """
+    # Determine label based on validation and authorization
+    if not is_authorized:
         label = "rejected"
-    subprocess.run(["gh", "issue", "edit", issue_number, "--add-label", label])
-    subprocess.run(["gh", "issue", "close", issue_number, "--comment", message])
+    elif not is_valid:
+        label = "invalid"
+    else:
+        label = "to be processed"
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    base_url = "https://api.github.com/repos/opencitations/crowdsourcing/issues"
+
+    # Add label
+    try:
+        requests.post(
+            f"{base_url}/{issue_number}/labels",
+            headers=headers,
+            json={"labels": [label]},
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        print(f"Error adding label to issue {issue_number}: {e}")
+        raise
+
+    # Add comment and close issue
+    try:
+        requests.post(
+            f"{base_url}/{issue_number}/comments",
+            headers=headers,
+            json={"body": message},
+            timeout=30,
+        )
+
+        requests.patch(
+            f"{base_url}/{issue_number}",
+            headers=headers,
+            json={"state": "closed"},
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        print(f"Error closing issue {issue_number}: {e}")
+        raise
 
 
 def get_user_id(username: str) -> Optional[int]:
@@ -337,6 +387,7 @@ def process_open_issues() -> None:
                     False,
                     "To make a deposit, please contact OpenCitations at <contact@opencitations.net> to register as a trusted user",
                     issue_number,
+                    is_authorized=False,
                 )
                 continue
 
@@ -346,7 +397,7 @@ def process_open_issues() -> None:
             had_primary_source = issue["url"]
 
             is_valid, message = validate(issue_title, issue_body)
-            answer(is_valid, message, issue_number)
+            answer(is_valid, message, issue_number, is_authorized=True)
 
             if is_valid:
                 data_to_store.append(
