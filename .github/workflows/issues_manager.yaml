@@ -2,14 +2,28 @@ name: Issues manager
 on: workflow_dispatch
 jobs:
   Validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       ZENODO: ${{ secrets.ZENODO }}
     steps:
       - name: List files in the repository
-        uses: actions/checkout@v3.0.2
-      - name: Install the dependencies
-        run: pip3 install -r requirements.txt
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          
+      - name: Install dependencies
+        run: poetry install --no-interaction
+        
       - name: Process the issue
-        run: python3 process_issues.py
+        run: poetry run python3 process_issues.py
