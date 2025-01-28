@@ -23,7 +23,7 @@ import re
 import subprocess
 import time
 from datetime import datetime
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import requests
 from oc_ds_converter.oc_idmanager.base import IdentifierManager
@@ -39,15 +39,23 @@ from pandas import read_csv
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
-    match = re.search(
-        r"deposit\s+(.+?)(?:(doi|isbn|pmid|pmcid|url|wikidata|wikipedia|openalex):(.+))",
+    """Validate the format and identifier in an issue title."""
+    basic_format = re.search(
+        r"deposit\s+(.+?)\s+[a-zA-Z]+:.+",
         title,
+        re.IGNORECASE,
     )
-    if not match:
+    if not basic_format:
         return (
             False,
             'The title of the issue was not structured correctly. Please, follow this format: deposit {domain name of journal} {doi or other supported identifier}. For example "deposit localhost:330 doi:10.1007/978-3-030-00668-6_8". The following identifiers are currently supported: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, and openalex',
         )
+
+    match = re.search(
+        r"deposit\s+(.+?)\s+([a-zA-Z]+):(.+)",
+        title,
+        re.IGNORECASE,
+    )
 
     identifier_schema = match.group(2).lower()
     identifier = match.group(3)
@@ -118,26 +126,38 @@ def answer(is_valid: bool, message: str, issue_number: str) -> None:
     subprocess.run(["gh", "issue", "close", issue_number, "--comment", message])
 
 
-def get_user_id(username: str) -> str:
-    tentative = 3
-    while tentative:
-        tentative -= 1
+def get_user_id(username: str) -> Optional[int]:
+    """Get GitHub user ID from username with retries on failure.
+
+    Args:
+        username: GitHub username to lookup
+
+    Returns:
+        The user's GitHub ID if found, None otherwise
+    """
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5  # seconds
+
+    for attempt in range(MAX_RETRIES):
         try:
-            r = requests.get(
+            response = requests.get(
                 f"https://api.github.com/users/{username}",
                 headers={"Accept": "application/vnd.github+json"},
                 timeout=30,
             )
-            if r.status_code == 200:
-                r.encoding = "utf-8"
-                json_res = json.loads(r.text)
-                return json_res.get("id")
+            if response.status_code == 200:
+                return response.json().get("id")
+            elif response.status_code == 404:
+                return None
+            # Altri status code indicano problemi con l'API, quindi continuiamo a riprovare
+
         except requests.ReadTimeout:
-            # Do nothing, just try again
-            pass
+            continue
         except requests.ConnectionError:
-            # Sleep 5 seconds, then try again
-            time.sleep(5)
+            time.sleep(RETRY_DELAY)
+            continue
+
+    return None  # Tutti i tentativi falliti
 
 
 def get_data_to_store(
@@ -220,52 +240,128 @@ def deposit_on_zenodo(data_to_store: List[dict]) -> None:
     #                     params={'access_token': os.environ["ZENODO"]} )
 
 
-def is_in_whitelist(username: int) -> bool:
-    with open("whitelist.txt", "r") as f:
-        whitelist = f.read().splitlines()
-        if str(username) not in whitelist:
-            return False
-    return True
+def is_in_safe_list(user_id: int) -> bool:
+    """Check if a user ID is in the safe list.
+
+    Args:
+        user_id: GitHub user ID to check
+
+    Returns:
+        True if user is in safe list, False otherwise
+    """
+    try:
+        with open("safe_list.txt", "r") as f:
+            return str(user_id) in {line.strip() for line in f}
+    except FileNotFoundError:
+        return False
 
 
-if __name__ == "__main__":
-    output = subprocess.run(
-        [
-            "gh",
-            "issue",
-            "list",
-            "--state",
-            "open",
-            "--label",
-            "deposit",
-            "--json",
-            "title,body,number,author,createdAt,url",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    issues = json.loads(output.stdout)
-    data_to_store = list()
-    for issue in issues:
-        issue_number = str(issue["number"])
-        username = issue["author"]["login"]
-        user_id = get_user_id(username)
-        if not is_in_whitelist(user_id):
-            answer(
-                False,
-                "To make a deposit, please contact OpenCitations at <contact@opencitations.net> to register as a trusted user",
-                issue_number,
+def get_open_issues() -> List[dict]:
+    """Fetch open issues with 'deposit' label using GitHub REST API.
+
+    Returns:
+        List of issue dictionaries containing title, body, number, author, created_at and url
+    """
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+    }
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(
+                "https://api.github.com/repos/opencitations/crowdsourcing/issues",
+                params={
+                    "state": "open",
+                    "labels": "deposit",
+                },
+                headers=headers,
+                timeout=30,
             )
-        else:
+
+            if response.status_code == 200:
+                issues = response.json()
+                # Transform response to match expected format
+                return [
+                    {
+                        "title": issue["title"],
+                        "body": issue["body"],
+                        "number": str(issue["number"]),
+                        "author": {"login": issue["user"]["login"]},
+                        "createdAt": issue["created_at"],
+                        "url": issue["html_url"],
+                    }
+                    for issue in issues
+                ]
+
+            elif response.status_code == 404:
+                return []
+
+            # Handle rate limiting
+            elif (
+                response.status_code == 403
+                and "X-RateLimit-Remaining" in response.headers
+            ):
+                if int(response.headers["X-RateLimit-Remaining"]) == 0:
+                    reset_time = int(response.headers["X-RateLimit-Reset"])
+                    sleep_time = max(reset_time - time.time(), 0)
+                    time.sleep(sleep_time)
+                    continue
+
+        except (requests.RequestException, KeyError) as e:
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(RETRY_DELAY)
+                continue
+            raise RuntimeError(
+                f"Failed to fetch issues after {MAX_RETRIES} attempts"
+            ) from e
+
+    return []
+
+
+def process_open_issues() -> None:
+    try:
+        issues = get_open_issues()
+        data_to_store = list()
+
+        for issue in issues:
+            issue_number = issue["number"]
+            username = issue["author"]["login"]
+            user_id = get_user_id(username)
+
+            if not is_in_safe_list(user_id):
+                answer(
+                    False,
+                    "To make a deposit, please contact OpenCitations at <contact@opencitations.net> to register as a trusted user",
+                    issue_number,
+                )
+                continue
+
             issue_title = issue["title"]
             issue_body = issue["body"]
             created_at = issue["createdAt"]
             had_primary_source = issue["url"]
+
             is_valid, message = validate(issue_title, issue_body)
             answer(is_valid, message, issue_number)
+
             if is_valid:
                 data_to_store.append(
-                    get_data_to_store(issue_title, issue_body, created_at, user_id)
+                    get_data_to_store(
+                        issue_title, issue_body, created_at, had_primary_source, user_id
+                    )
                 )
-    # if data_to_store:
-    # deposit_on_zenodo(data_to_store)
+
+        # if data_to_store:
+        #     deposit_on_zenodo(data_to_store)
+
+    except Exception as e:
+        print(f"Error processing issues: {e}")
+        raise
+
+
+if __name__ == "__main__":  # pragma: no cover
+    process_open_issues()

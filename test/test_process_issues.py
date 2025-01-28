@@ -14,8 +14,21 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 # SOFTWARE.
 
-from process_issues import _validate_title, validate
+import os
 import unittest
+from unittest.mock import patch, MagicMock
+import json
+from requests.exceptions import RequestException
+import time
+
+from process_issues import (
+    _validate_title,
+    get_user_id,
+    is_in_safe_list,
+    validate,
+    get_open_issues,
+    process_open_issues,
+)
 
 
 class TestTitleValidation(unittest.TestCase):
@@ -45,7 +58,7 @@ class TestTitleValidation(unittest.TestCase):
         title = "deposit journal.com arxiv:2203.01234"
         is_valid, message = _validate_title(title)
         self.assertFalse(is_valid)
-        self.assertIn("title of the issue was not structured correctly", message)
+        self.assertEqual(message, "The identifier schema 'arxiv' is not supported")
 
     def test_invalid_doi(self):
         """Test that invalid DOI format is rejected"""
@@ -60,6 +73,14 @@ class TestTitleValidation(unittest.TestCase):
         is_valid, message = _validate_title(title)
         self.assertFalse(is_valid)
         self.assertIn("title of the issue was not structured correctly", message)
+
+    def test_unsupported_schema(self):
+        """Test that an unsupported identifier schema returns appropriate error"""
+        title = "deposit journal.com issn:1234-5678"  # issn is not in supported schemas
+        is_valid, message = _validate_title(title)
+        self.assertFalse(is_valid)
+        print("message", message)
+        self.assertEqual(message, "The identifier schema 'issn' is not supported")
 
 
 class TestValidation(unittest.TestCase):
@@ -101,6 +122,141 @@ WRONG_SEPARATOR
         self.assertFalse(is_valid)
         self.assertIn("title of the issue was not structured correctly", message)
 
+    def test_invalid_csv_structure(self):
+        """Test that CSV with wrong column structure returns appropriate error"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"wrong","column","headers"
+"data1","data2","data3"
+===###===@@@===
+"wrong","citation","headers"
+"cite1","cite2","cite3"\""""
+        is_valid, message = validate(title, body)
+        self.assertFalse(is_valid)
+        self.assertIn("could not be processed as a CSV", message)
 
-if __name__ == "__main__":
+
+class TestUserValidation(unittest.TestCase):
+    def setUp(self):
+        # Create a real safe list file with actual GitHub user IDs
+        with open("safe_list.txt", "w") as f:
+            # These are real GitHub user IDs
+            f.write("3869247\n")  # The ID of essepuntato
+            f.write("42008604\n")  # The ID of arcangelo7
+
+    def tearDown(self):
+        # Clean up the test file
+        if os.path.exists("safe_list.txt"):
+            os.remove("safe_list.txt")
+
+    def test_get_user_id_real_user(self):
+        """Test getting ID of a real GitHub user"""
+        user_id = get_user_id("arcangelo7")
+        self.assertEqual(user_id, 42008604)
+
+    def test_get_user_id_nonexistent_user(self):
+        """Test getting ID of a nonexistent GitHub user"""
+        user_id = get_user_id("this_user_definitely_does_not_exist_123456789")
+        self.assertIsNone(user_id)
+
+    def test_is_in_safe_list_allowed_user(self):
+        """Test with a real allowed GitHub user ID"""
+        self.assertTrue(is_in_safe_list(42008604))  # arcangelo7's ID
+
+    def test_is_in_safe_list_not_allowed_user(self):
+        """Test with a real but not allowed GitHub user ID"""
+        self.assertFalse(is_in_safe_list(106336590))  # vbrandelero's ID
+
+    def test_is_in_safe_list_nonexistent_user(self):
+        """Test with a nonexistent user ID"""
+        self.assertFalse(is_in_safe_list(999999999))
+
+
+class TestGitHubAPI(unittest.TestCase):
+    """Test GitHub API interaction functionality"""
+
+    def setUp(self):
+        self.mock_response = MagicMock()
+        self.mock_response.status_code = 200
+
+        # Sample issue data that won't change
+        self.sample_issues = [
+            {
+                "title": "deposit journal.com doi:10.1234/test",
+                "body": "test body",
+                "number": 1,
+                "user": {"login": "test-user"},
+                "created_at": "2024-01-01T00:00:00Z",
+                "html_url": "https://github.com/test/test/issues/1",
+            }
+        ]
+
+    @patch("requests.get")
+    def test_get_open_issues_success(self, mock_get):
+        """Test successful retrieval of open issues"""
+        self.mock_response.json.return_value = self.sample_issues
+        mock_get.return_value = self.mock_response
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            issues = get_open_issues()
+
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0]["title"], "deposit journal.com doi:10.1234/test")
+        self.assertEqual(issues[0]["number"], "1")
+
+        # Verify API call
+        mock_get.assert_called_once()
+        args, kwargs = mock_get.call_args
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
+        self.assertEqual(kwargs["params"]["labels"], "deposit")
+
+    @patch("requests.get")
+    def test_get_open_issues_404(self, mock_get):
+        """Test handling of 404 response"""
+        self.mock_response.status_code = 404
+        mock_get.return_value = self.mock_response
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            issues = get_open_issues()
+
+        self.assertEqual(issues, [])
+
+    @patch("requests.get")
+    @patch("time.sleep")  # Mock sleep to speed up tests
+    def test_rate_limit_handling(self, mock_sleep, mock_get):
+        """Test handling of rate limiting"""
+        # First response indicates rate limit hit
+        rate_limited_response = MagicMock()
+        rate_limited_response.status_code = 403
+        rate_limited_response.headers = {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(int(time.time()) + 3600),
+        }
+
+        # Second response succeeds
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = self.sample_issues
+
+        mock_get.side_effect = [rate_limited_response, success_response]
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            issues = get_open_issues()
+
+        self.assertEqual(len(issues), 1)
+        self.assertTrue(mock_sleep.called)
+
+    @patch("requests.get")
+    def test_network_error_retry(self, mock_get):
+        """Test retry behavior on network errors"""
+        mock_get.side_effect = RequestException("Network error")
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            with self.assertRaises(RuntimeError) as context:
+                get_open_issues()
+
+        self.assertIn("Failed to fetch issues after 3 attempts", str(context.exception))
+        self.assertEqual(mock_get.call_count, 3)  # Verify 3 retry attempts
+
+
+if __name__ == "__main__":  # pragma: no cover
     unittest.main()

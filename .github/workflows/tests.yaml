@@ -56,7 +56,7 @@ jobs:
           retention-days: 14
 
       - name: Generate coverage badge
-        if: github.ref == 'refs/heads/master' && matrix.python-version == '3.10'
+        if: matrix.python-version == '3.10'
         uses: RubbaBoy/BYOB@v1.3.0
         with:
           name: opencitations-crowdsourcing-coverage
