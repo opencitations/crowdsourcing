@@ -165,104 +165,64 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         # Get validation results
         validation_result = validator.validate()
 
-        # Handle different return types based on strict_sequentiality
-        if validation_result is None:
-            # Don't assume errors, let the summary files tell us
-            meta_validation = cits_validation = None
-        else:
-            meta_validation, cits_validation = validation_result
-
-        # Read validation results from files
-        error_messages = []
-
-        # Check metadata validation results
-        meta_summary_path = os.path.join(
-            "validation_output", "meta_validation_summary.txt"
+        # Check if there are any validation errors
+        has_meta_errors = (
+            os.path.exists("validation_output/meta_validation_summary.txt")
+            and os.path.getsize("validation_output/meta_validation_summary.txt") > 0
         )
-        if os.path.exists(meta_summary_path):
-            with open(meta_summary_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:  # Only add if there are actual errors
-                    error_messages.append("Metadata validation errors:")
-                    error_messages.append(content)
-                    meta_validation = (
-                        True  # Set validation flag based on summary content
-                    )
-
-        # Check citations validation results
-        cits_summary_path = os.path.join(
-            "validation_output", "cits_validation_summary.txt"
+        has_cits_errors = (
+            os.path.exists("validation_output/cits_validation_summary.txt")
+            and os.path.getsize("validation_output/cits_validation_summary.txt") > 0
         )
-        if os.path.exists(cits_summary_path):
-            with open(cits_summary_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-                if content:  # Only add if there are actual errors
-                    if (
-                        error_messages
-                    ):  # Add blank line between metadata and citation errors
-                        error_messages.append("")
-                    error_messages.append("Citations validation errors:")
-                    error_messages.append(content)
-                    print(content)
-                    cits_validation = (
-                        True  # Set validation flag based on summary content
-                    )
 
-        if error_messages:
+        if has_meta_errors or has_cits_errors:
             # Generate HTML report for validation errors
-            try:
-                report_filename = f"validation_{int(time.time())}.html"
-                report_path = f"docs/validation_reports/{report_filename}"
+            report_filename = f"validation_{int(time.time())}.html"
+            report_path = f"docs/validation_reports/{report_filename}"
 
-                # Track which reports were generated
-                meta_report_exists = False
-                cits_report_exists = False
-
-                # Generate metadata report only if there were metadata errors
-                if meta_validation:  # Use validation result directly
-                    make_gui(
-                        "temp_metadata.csv",
-                        "validation_output/out_validate_meta.json",
-                        "validation_output/meta_report.html",
-                    )
-                    meta_report_exists = True
-
-                # Generate citations report only if there were citation errors
-                if cits_validation:  # Use validation result directly
-                    make_gui(
-                        "temp_citations.csv",
-                        "validation_output/out_validate_cits.json",
-                        "validation_output/cits_report.html",
-                    )
-                    cits_report_exists = True
-
-                # Merge reports only if both exist
-                if meta_report_exists and cits_report_exists:
-                    merge_html_files(
-                        "validation_output/meta_report.html",
-                        "validation_output/cits_report.html",
-                        report_path,
-                    )
-                # If only metadata report exists, copy it as final report
-                elif meta_report_exists:
-                    shutil.copy("validation_output/meta_report.html", report_path)
-                # If only citations report exists, copy it as final report
-                elif cits_report_exists:
-                    shutil.copy("validation_output/cits_report.html", report_path)
-
-                # Get repository from environment
-                repository = os.environ.get(
-                    "GITHUB_REPOSITORY", "opencitations/crowdsourcing"
+            # Generate metadata report if there were metadata errors
+            if has_meta_errors:
+                make_gui(
+                    "temp_metadata.csv",
+                    "validation_output/out_validate_meta.json",
+                    "validation_output/meta_report.html",
                 )
-                report_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}/validation_reports/{report_filename}"
 
-                error_messages.append(f"\n\nDetailed validation report: {report_url}")
+            # Generate citations report if there were citation errors
+            if has_cits_errors:
+                make_gui(
+                    "temp_citations.csv",
+                    "validation_output/out_validate_cits.json",
+                    "validation_output/cits_report.html",
+                )
 
-            except Exception as e:
-                print(f"Error generating HTML report: {e}")
-                # Continue without the report URL if HTML generation fails
+            # Merge reports if both exist, otherwise copy the single report
+            if has_meta_errors and has_cits_errors:
+                merge_html_files(
+                    "validation_output/meta_report.html",
+                    "validation_output/cits_report.html",
+                    report_path,
+                )
+            elif has_meta_errors:
+                shutil.copy("validation_output/meta_report.html", report_path)
+            else:  # has_cits_errors
+                shutil.copy("validation_output/cits_report.html", report_path)
 
-            return False, "\n".join(error_messages)
+            # Get repository from environment
+            repository = os.environ.get(
+                "GITHUB_REPOSITORY", "opencitations/crowdsourcing"
+            )
+            report_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}/validation_reports/{report_filename}"
+
+            # Create error message based on which parts have errors
+            error_parts = []
+            if has_meta_errors:
+                error_parts.append("metadata")
+            if has_cits_errors:
+                error_parts.append("citations")
+
+            error_message = f"Validation errors found in {' and '.join(error_parts)}. Please check the detailed validation report: {report_url}"
+            return False, error_message
 
         # If no validation errors, return success
         return (
@@ -271,7 +231,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         )
 
     except Exception as e:
-        print(f"Validation error: {e}")
+        logger.error(f"Validation error: {e}")
         # Clean up temporary files and directory in case of error
         cleanup_files = [
             "temp_metadata.csv",

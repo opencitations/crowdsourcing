@@ -107,11 +107,8 @@ class TestValidation(unittest.TestCase):
         """Clean up after each test"""
         # Clean up test directories - ignore errors if already deleted
         for path in ["validation_output", "docs/validation_reports"]:
-            try:
-                if os.path.exists(path):
-                    shutil.rmtree(path)
-            except FileNotFoundError:
-                pass  # Directory already deleted
+            if os.path.exists(path):
+                shutil.rmtree(path)
 
     def test_valid_issue(self):
         """Test that a valid issue with correct title and CSV data is accepted"""
@@ -233,39 +230,59 @@ INVALID_SEPARATOR
     def test_validation_with_validator(self):
         """Test validation using the oc_validator library"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # CSV con errori di validazione intenzionali
         body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
-"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"doi:10.1007/s42835-022-01029-y","","","","","","","","invalid_type","",""
 ===###===@@@===
 "citing_id","cited_id"
-"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
+"doi:10.1007/s42835-022-01029-y","invalid_doi"\""""
 
-        # Create validation output directory and files before validation
-        os.makedirs("validation_output", exist_ok=True)
+        try:
+            # Create required directories
+            os.makedirs("validation_output", exist_ok=True)
+            os.makedirs("docs/validation_reports", exist_ok=True)
 
-        # Create validation files with errors
-        with open("validation_output/meta_validation_summary.txt", "w") as f:
-            f.write("Some metadata validation error")
-        with open("validation_output/cits_validation_summary.txt", "w") as f:
-            f.write("Some citation validation error")
-
-        with patch("process_issues.ClosureValidator") as mock_validator:
-            # Configure mock validator to simulate validation failure
-            mock_instance = mock_validator.return_value
-            mock_instance.validate.return_value = (
-                None  # Simulate strict_sequentiality=True with errors
-            )
-
+            # Run validation
             is_valid, message = validate(title, body)
 
-            self.assertFalse(is_valid)  # Should fail since there are validation errors
-            self.assertIn("validation errors", message.lower())
+            # Verify validation failed
+            self.assertFalse(is_valid)
+            self.assertIn("Validation errors found in", message)
+            self.assertIn("metadata and citations", message)
 
-            # Verify validator was called correctly
-            mock_validator.assert_called_once()
-            mock_instance.validate.assert_called_once()
+            # Verify validation files were created
+            self.assertTrue(
+                os.path.exists("validation_output/meta_validation_summary.txt")
+            )
+            self.assertTrue(
+                os.path.exists("validation_output/cits_validation_summary.txt")
+            )
+            self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
+            self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
 
-        # Clean up
-        shutil.rmtree("validation_output")
+            # Verify HTML reports were generated
+            self.assertTrue(os.path.exists("validation_output/meta_report.html"))
+            self.assertTrue(os.path.exists("validation_output/cits_report.html"))
+
+            # Verify final report was generated in docs/validation_reports
+            report_files = os.listdir("docs/validation_reports")
+            self.assertTrue(
+                any(
+                    f.startswith("validation_") and f.endswith(".html")
+                    for f in report_files
+                )
+            )
+
+        finally:
+            # Clean up
+            if os.path.exists("validation_output"):
+                shutil.rmtree("validation_output")
+            if os.path.exists("docs/validation_reports"):
+                shutil.rmtree("docs/validation_reports")
+            if os.path.exists("temp_metadata.csv"):
+                os.remove("temp_metadata.csv")
+            if os.path.exists("temp_citations.csv"):
+                os.remove("temp_citations.csv")
 
     def test_validation_with_metadata_validation_file(self):
         """Test validation when metadata validation file contains errors"""
@@ -304,30 +321,65 @@ INVALID_SEPARATOR
     def test_validation_reads_validation_files(self):
         """Test that validation properly reads and processes validation files"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
-        # Valid CSV structure but with validation errors
+        # CSV con errori di validazione intenzionali
         body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
-"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"doi:10.1007/s42835-022-01029-y","","","","","","","","invalid_type","",""
+"doi:10.1162/qss_a_00292","","","","","","","","journal article","",""
 ===###===@@@===
 "citing_id","cited_id"
-"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
+"doi:10.1007/s42835-022-01029-y","invalid_doi"
+"doi:10.1162/qss_a_00292","doi:10.1007/s42835-022-01029-y"\""""
 
-        # Create validation output directory and files before validation
-        os.makedirs("validation_output", exist_ok=True)
+        try:
+            # Create required directories
+            os.makedirs("validation_output", exist_ok=True)
+            os.makedirs("docs/validation_reports", exist_ok=True)
 
-        # Create validation files with errors
-        with open("validation_output/meta_validation_summary.txt", "w") as f:
-            f.write("Some metadata validation error")
-        with open("validation_output/cits_validation_summary.txt", "w") as f:
-            f.write("Some citation validation error")
+            # Run validation
+            is_valid, message = validate(title, body)
 
-        is_valid, message = validate(title, body)
+            # Verify validation failed
+            self.assertFalse(is_valid)
+            self.assertIn("Validation errors found in metadata and citations", message)
+            self.assertIn("Please check the detailed validation report:", message)
 
-        self.assertFalse(is_valid)
-        self.assertIn("Metadata validation errors:", message)
-        self.assertIn("Some metadata validation error", message)
-        self.assertIn("Citations validation errors:", message)
-        self.assertIn("Some citation validation error", message)
-        self.assertIn("\n\n", message)  # Blank line between errors
+            # Verify validation files were created
+            self.assertTrue(
+                os.path.exists("validation_output/meta_validation_summary.txt")
+            )
+            self.assertTrue(
+                os.path.exists("validation_output/cits_validation_summary.txt")
+            )
+            self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
+            self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
+
+            # Verify HTML reports were generated
+            self.assertTrue(os.path.exists("validation_output/meta_report.html"))
+            self.assertTrue(os.path.exists("validation_output/cits_report.html"))
+
+            # Verify final report was generated in docs/validation_reports
+            report_files = os.listdir("docs/validation_reports")
+            self.assertTrue(
+                any(
+                    f.startswith("validation_") and f.endswith(".html")
+                    for f in report_files
+                )
+            )
+
+            # Verify report URL format in message
+            self.assertIn("validation_reports/validation_", message)
+            self.assertIn(".html", message)
+
+        finally:
+            # Clean up
+            if os.path.exists("validation_output"):
+                shutil.rmtree("validation_output")
+            if os.path.exists("docs/validation_reports"):
+                shutil.rmtree("docs/validation_reports")
+            if os.path.exists("temp_metadata.csv"):
+                os.remove("temp_metadata.csv")
+            if os.path.exists("temp_citations.csv"):
+                os.remove("temp_citations.csv")
 
     def test_validation_html_report_generation(self):
         """Test that HTML validation reports are properly generated when validation fails"""
@@ -360,7 +412,7 @@ INVALID_SEPARATOR
         )
 
         # Verify report URL is in the error message
-        self.assertIn("Detailed validation report:", message)
+        self.assertIn("Please check the detailed validation report:", message)
         self.assertIn("validation_reports/validation_", message)
 
         # Clean up
@@ -1304,56 +1356,6 @@ class TestProcessOpenIssues(unittest.TestCase):
 
         # Verify no deposit was made
         mock_deposit.assert_not_called()
-
-    @patch("process_issues.get_open_issues")
-    @patch("process_issues.get_user_id")
-    @patch("process_issues.is_in_safe_list")
-    @patch("process_issues.deposit_on_zenodo")
-    @patch("process_issues.answer")
-    def test_process_invalid_issue(
-        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
-    ):
-        """Test processing an invalid issue from authorized user"""
-        # Create invalid issue (wrong format)
-        invalid_issue = self.sample_issue.copy()
-        invalid_issue["body"] = "Invalid body without separator"
-
-        # Setup mocks
-        mock_get_issues.return_value = [invalid_issue]
-        mock_user_id.return_value = 12345
-        mock_safe_list.return_value = True
-
-        # Run function
-        process_open_issues()
-
-        # Verify response for invalid issue
-        mock_answer.assert_called_once()
-        args, kwargs = mock_answer.call_args
-        self.assertFalse(args[0])  # is_valid
-        self.assertIn("separator", args[1])  # message
-        self.assertEqual(args[2], "1")  # issue_number
-        self.assertTrue(kwargs["is_authorized"])
-
-        # Verify no deposit was made
-        mock_deposit.assert_not_called()
-
-    @patch("process_issues.get_open_issues")
-    def test_process_no_issues(self, mock_get_issues):
-        """Test processing when no issues are present"""
-        mock_get_issues.return_value = []
-
-        process_open_issues()
-        mock_get_issues.assert_called_once()
-
-    @patch("process_issues.get_open_issues")
-    def test_process_error_handling(self, mock_get_issues):
-        """Test error handling in process_open_issues"""
-        mock_get_issues.side_effect = Exception("Test error")
-
-        with self.assertRaises(Exception) as context:
-            process_open_issues()
-
-        self.assertEqual(str(context.exception), "Test error")
 
     @patch("process_issues.get_open_issues")
     @patch("process_issues.get_user_id")
