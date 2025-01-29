@@ -523,6 +523,10 @@ def get_open_issues() -> List[dict]:
     """Fetch open issues with 'deposit' label using GitHub REST API."""
     print("Attempting to fetch open issues...")
 
+    # Get repository info from GitHub Actions environment
+    repository = os.environ.get("GITHUB_REPOSITORY", "opencitations/crowdsourcing")
+    print(f"Checking repository: {repository}")
+
     MAX_RETRIES = 3
     RETRY_DELAY = 5
 
@@ -535,7 +539,7 @@ def get_open_issues() -> List[dict]:
         try:
             print(f"Attempt {attempt + 1} of {MAX_RETRIES}")
             response = requests.get(
-                "https://api.github.com/repos/opencitations/crowdsourcing/issues",
+                f"https://api.github.com/repos/{repository}/issues",
                 params={
                     "state": "open",
                     "labels": "deposit",
