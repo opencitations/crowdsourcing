@@ -99,18 +99,19 @@ class TestValidation(unittest.TestCase):
     def setUp(self):
         """Set up test environment before each test"""
         # Clean up any existing test directories
-        if os.path.exists("validation_output"):
-            shutil.rmtree("validation_output")
-        if os.path.exists("docs/validation_reports"):
-            shutil.rmtree("docs/validation_reports")
+        for path in ["validation_output", "docs/validation_reports"]:
+            if os.path.exists(path):
+                shutil.rmtree(path)
 
     def tearDown(self):
         """Clean up after each test"""
-        # Clean up test directories
-        if os.path.exists("validation_output"):
-            shutil.rmtree("validation_output")
-        if os.path.exists("docs/validation_reports"):
-            shutil.rmtree("docs/validation_reports")
+        # Clean up test directories - ignore errors if already deleted
+        for path in ["validation_output", "docs/validation_reports"]:
+            try:
+                if os.path.exists(path):
+                    shutil.rmtree(path)
+            except FileNotFoundError:
+                pass  # Directory already deleted
 
     def test_valid_issue(self):
         """Test that a valid issue with correct title and CSV data is accepted"""
@@ -427,9 +428,38 @@ INVALID_SEPARATOR
         ) as f2:
             self.assertEqual(f1.read(), f2.read())
 
+    def test_validate_empty_body(self):
+        """Test validate() with empty body content"""
+        title = "deposit journal.com doi:10.1162/qss_a_00292"
+        body = None
+
+        is_valid, message = validate(title, body)
+
+        self.assertFalse(is_valid)
+        self.assertIn("The issue body cannot be empty", message)
+        self.assertIn(
+            "https://github.com/opencitations/crowdsourcing/blob/main/README.md",
+            message,
+        )
+
+    def test_validate_empty_string_body(self):
+        """Test validate() with empty string body content"""
+        title = "deposit journal.com doi:10.1162/qss_a_00292"
+        body = ""
+
+        is_valid, message = validate(title, body)
+
+        self.assertFalse(is_valid)
+        self.assertIn("The issue body cannot be empty", message)
+        self.assertIn(
+            "https://github.com/opencitations/crowdsourcing/blob/main/README.md",
+            message,
+        )
+
 
 class TestUserValidation(unittest.TestCase):
     def setUp(self):
+        """Set up test environment before each test"""
         # Create a test safe list file with actual GitHub user IDs
         test_safe_list = {
             "users": [
@@ -439,11 +469,6 @@ class TestUserValidation(unittest.TestCase):
         }
         with open("safe_list.yaml", "w") as f:
             yaml.dump(test_safe_list, f)
-
-    def tearDown(self):
-        # Clean up the test file
-        if os.path.exists("safe_list.yaml"):
-            os.remove("safe_list.yaml")
 
     def test_get_user_id_real_user(self):
         """Test getting ID of a real GitHub user"""

@@ -119,6 +119,14 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         logger.warning(f"Invalid title format: {title_message}")
         return False, title_message
 
+    # Check if body is empty
+    if not issue_body:
+        logger.warning("Empty issue body")
+        return (
+            False,
+            "The issue body cannot be empty. Please provide metadata and citations in CSV format separated by '===###===@@@===', as shown in the guide: https://github.com/opencitations/crowdsourcing/blob/main/README.md",
+        )
+
     # Check for required separator
     if "===###===@@@===" not in issue_body:
         logger.warning("Missing required separator in issue body")
@@ -263,7 +271,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         )
 
     except Exception as e:
-        logger.error(f"Validation error: {e}", exc_info=True)
+        print(f"Validation error: {e}")
         # Clean up temporary files and directory in case of error
         cleanup_files = [
             "temp_metadata.csv",
