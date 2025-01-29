@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-22.04
+    env:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      ZENODO: ${{ secrets.ZENODO }}
     strategy:
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12']
