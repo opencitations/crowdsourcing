@@ -37,6 +37,7 @@ from oc_ds_converter.oc_idmanager.url import URLManager
 from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
 from oc_validator.main import ClosureValidator
+from oc_validator.interface.gui import make_gui, merge_html_files
 import yaml
 
 
@@ -129,6 +130,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
     try:
         logger.info("Creating validation output directory")
         os.makedirs("validation_output", exist_ok=True)
+        os.makedirs("docs/validation_reports", exist_ok=True)
 
         # Split the data into metadata and citations
         split_data = issue_body.split("===###===@@@===")
@@ -152,7 +154,15 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
             cits_kwargs={"verify_id_existence": True},
         )
 
-        validator.validate()
+        # Get validation results
+        validation_result = validator.validate()
+
+        # Handle different return types based on strict_sequentiality
+        if validation_result is None:
+            # Don't assume errors, let the summary files tell us
+            meta_validation = cits_validation = None
+        else:
+            meta_validation, cits_validation = validation_result
 
         # Read validation results from files
         error_messages = []
@@ -167,6 +177,9 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
                 if content:  # Only add if there are actual errors
                     error_messages.append("Metadata validation errors:")
                     error_messages.append(content)
+                    meta_validation = (
+                        True  # Set validation flag based on summary content
+                    )
 
         # Check citations validation results
         cits_summary_path = os.path.join(
@@ -182,23 +195,68 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
                         error_messages.append("")
                     error_messages.append("Citations validation errors:")
                     error_messages.append(content)
-
-        # Clean up all temporary files and directory
-        cleanup_files = [
-            "temp_metadata.csv",
-            "temp_citations.csv",
-        ]
-        for file in cleanup_files:
-            if os.path.exists(file):
-                os.remove(file)
-
-        # Remove validation_output directory if it exists
-        if os.path.exists("validation_output"):
-            shutil.rmtree("validation_output")
+                    print(content)
+                    cits_validation = (
+                        True  # Set validation flag based on summary content
+                    )
 
         if error_messages:
+            # Generate HTML report for validation errors
+            try:
+                report_filename = f"validation_{int(time.time())}.html"
+                report_path = f"docs/validation_reports/{report_filename}"
+
+                # Track which reports were generated
+                meta_report_exists = False
+                cits_report_exists = False
+
+                # Generate metadata report only if there were metadata errors
+                if meta_validation:  # Use validation result directly
+                    make_gui(
+                        "temp_metadata.csv",
+                        "validation_output/out_validate_meta.json",
+                        "validation_output/meta_report.html",
+                    )
+                    meta_report_exists = True
+
+                # Generate citations report only if there were citation errors
+                if cits_validation:  # Use validation result directly
+                    make_gui(
+                        "temp_citations.csv",
+                        "validation_output/out_validate_cits.json",
+                        "validation_output/cits_report.html",
+                    )
+                    cits_report_exists = True
+
+                # Merge reports only if both exist
+                if meta_report_exists and cits_report_exists:
+                    merge_html_files(
+                        "validation_output/meta_report.html",
+                        "validation_output/cits_report.html",
+                        report_path,
+                    )
+                # If only metadata report exists, copy it as final report
+                elif meta_report_exists:
+                    shutil.copy("validation_output/meta_report.html", report_path)
+                # If only citations report exists, copy it as final report
+                elif cits_report_exists:
+                    shutil.copy("validation_output/cits_report.html", report_path)
+
+                # Get repository from environment
+                repository = os.environ.get(
+                    "GITHUB_REPOSITORY", "opencitations/crowdsourcing"
+                )
+                report_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}/validation_reports/{report_filename}"
+
+                error_messages.append(f"\n\nDetailed validation report: {report_url}")
+
+            except Exception as e:
+                print(f"Error generating HTML report: {e}")
+                # Continue without the report URL if HTML generation fails
+
             return False, "\n".join(error_messages)
 
+        # If no validation errors, return success
         return (
             True,
             "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [OpenCitations Index](https://opencitations.net/index) and metadata on [OpenCitations Meta](https://opencitations.net/meta)",

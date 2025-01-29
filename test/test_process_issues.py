@@ -16,11 +16,13 @@
 
 import json
 import os
+import shutil
 import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import requests
+import yaml
 from dotenv import load_dotenv
 from process_issues import (
     _create_deposition_resource,
@@ -37,7 +39,6 @@ from process_issues import (
     validate,
 )
 from requests.exceptions import RequestException
-import yaml
 
 load_dotenv()  # Carica le variabili dal file .env
 
@@ -95,6 +96,22 @@ class TestTitleValidation(unittest.TestCase):
 
 
 class TestValidation(unittest.TestCase):
+    def setUp(self):
+        """Set up test environment before each test"""
+        # Clean up any existing test directories
+        if os.path.exists("validation_output"):
+            shutil.rmtree("validation_output")
+        if os.path.exists("docs/validation_reports"):
+            shutil.rmtree("docs/validation_reports")
+
+    def tearDown(self):
+        """Clean up after each test"""
+        # Clean up test directories
+        if os.path.exists("validation_output"):
+            shutil.rmtree("validation_output")
+        if os.path.exists("docs/validation_reports"):
+            shutil.rmtree("docs/validation_reports")
+
     def test_valid_issue(self):
         """Test that a valid issue with correct title and CSV data is accepted"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
@@ -221,19 +238,33 @@ INVALID_SEPARATOR
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
 
+        # Create validation output directory and files before validation
+        os.makedirs("validation_output", exist_ok=True)
+
+        # Create validation files with errors
+        with open("validation_output/meta_validation_summary.txt", "w") as f:
+            f.write("Some metadata validation error")
+        with open("validation_output/cits_validation_summary.txt", "w") as f:
+            f.write("Some citation validation error")
+
         with patch("process_issues.ClosureValidator") as mock_validator:
-            # Configure mock validator to indicate successful validation
+            # Configure mock validator to simulate validation failure
             mock_instance = mock_validator.return_value
-            mock_instance.validate.return_value = None  # No errors
+            mock_instance.validate.return_value = (
+                None  # Simulate strict_sequentiality=True with errors
+            )
 
             is_valid, message = validate(title, body)
 
-            self.assertTrue(is_valid)
-            self.assertIn("Thank you for your contribution", message)
+            self.assertFalse(is_valid)  # Should fail since there are validation errors
+            self.assertIn("validation errors", message.lower())
 
             # Verify validator was called correctly
             mock_validator.assert_called_once()
             mock_instance.validate.assert_called_once()
+
+        # Clean up
+        shutil.rmtree("validation_output")
 
     def test_validation_with_metadata_validation_file(self):
         """Test validation when metadata validation file contains errors"""
@@ -296,6 +327,105 @@ INVALID_SEPARATOR
         self.assertIn("Citations validation errors:", message)
         self.assertIn("Some citation validation error", message)
         self.assertIn("\n\n", message)  # Blank line between errors
+
+    def test_validation_html_report_generation(self):
+        """Test that HTML validation reports are properly generated when validation fails"""
+        # Clean up any existing directories from previous tests
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # Invalid data that will fail validation
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"INVALID_DOI","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"INVALID_DOI","doi:10.1007/978-3-030-00668-6_8\""""
+
+        # Run validation
+        is_valid, message = validate(title, body)
+
+        # Verify validation failed
+        self.assertFalse(is_valid)
+
+        # Check that HTML reports were generated
+        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
+        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
+
+        # Check that merged report exists in docs/validation_reports
+        report_files = os.listdir("docs/validation_reports")
+        self.assertTrue(
+            any(
+                f.startswith("validation_") and f.endswith(".html")
+                for f in report_files
+            )
+        )
+
+        # Verify report URL is in the error message
+        self.assertIn("Detailed validation report:", message)
+        self.assertIn("validation_reports/validation_", message)
+
+        # Clean up
+        shutil.rmtree("validation_output")
+        shutil.rmtree("docs/validation_reports")
+
+    def test_validation_html_report_generation_only_metadata_errors(self):
+        """Test HTML report generation when only metadata has validation errors"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # CSV with invalid metadata but valid citations
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","","","","","","","invalid_type","",""
+"doi:10.1162/qss_a_00292","Test Title","","","","","","","journal article","",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1162/qss_a_00292\""""
+
+        # Run validation
+        is_valid, message = validate(title, body)
+
+        # Verify validation failed
+        self.assertFalse(is_valid)
+
+        # Check that only metadata report was generated
+        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
+        self.assertFalse(os.path.exists("validation_output/cits_report.html"))
+
+        # Check that final report exists and is a copy of metadata report
+        report_files = os.listdir("docs/validation_reports")
+        self.assertEqual(len(report_files), 1)
+        report_path = os.path.join("docs/validation_reports", report_files[0])
+
+        with open("validation_output/meta_report.html", "r") as f1, open(
+            report_path, "r"
+        ) as f2:
+            self.assertEqual(f1.read(), f2.read())
+
+    def test_validation_html_report_generation_only_citations_errors(self):
+        """Test HTML report generation when only citations have validation errors"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # CSV with valid metadata but invalid citations
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"INVALID_DOI","ANOTHER_INVALID_DOI"\""""
+
+        # Run validation
+        is_valid, message = validate(title, body)
+
+        # Verify validation failed
+        self.assertFalse(is_valid)
+
+        # Check that only citations report was generated
+        self.assertFalse(os.path.exists("validation_output/meta_report.html"))
+        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
+
+        # Check that final report exists and is a copy of citations report
+        report_files = os.listdir("docs/validation_reports")
+        self.assertEqual(len(report_files), 1)
+        report_path = os.path.join("docs/validation_reports", report_files[0])
+
+        with open("validation_output/cits_report.html", "r") as f1, open(
+            report_path, "r"
+        ) as f2:
+            self.assertEqual(f1.read(), f2.read())
 
 
 class TestUserValidation(unittest.TestCase):
