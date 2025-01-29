@@ -6,6 +6,11 @@ on:
     types:
       - completed
 
+# Add required permissions for GitHub Pages deployment
+permissions:
+  id-token: write
+  pages: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
