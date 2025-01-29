@@ -3,6 +3,3 @@ __pycache__/
 id_value.json
 .env
 .coverage
-docs/*
-!docs/_config.yml
-!docs/validation_reports/  # Allow validation reports to be committed
