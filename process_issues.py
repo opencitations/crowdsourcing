@@ -521,6 +521,8 @@ def is_in_safe_list(user_id: int) -> bool:
 
 def get_open_issues() -> List[dict]:
     """Fetch open issues with 'deposit' label using GitHub REST API."""
+    print("Attempting to fetch open issues...")
+
     MAX_RETRIES = 3
     RETRY_DELAY = 5
 
@@ -531,6 +533,7 @@ def get_open_issues() -> List[dict]:
 
     for attempt in range(MAX_RETRIES):
         try:
+            print(f"Attempt {attempt + 1} of {MAX_RETRIES}")
             response = requests.get(
                 "https://api.github.com/repos/opencitations/crowdsourcing/issues",
                 params={
@@ -541,8 +544,11 @@ def get_open_issues() -> List[dict]:
                 timeout=30,
             )
 
+            print(f"Response status code: {response.status_code}")
+
             if response.status_code == 200:
                 issues = response.json()
+                print(f"Found {len(issues)} issues")
                 return [
                     {
                         "title": issue["title"],
@@ -556,26 +562,33 @@ def get_open_issues() -> List[dict]:
                 ]
 
             elif response.status_code == 404:
+                print("Repository or endpoint not found (404)")
                 return []
 
             elif (
                 response.status_code == 403
                 and "X-RateLimit-Remaining" in response.headers
             ):
+                print(
+                    f"Rate limit info: {response.headers.get('X-RateLimit-Remaining')} requests remaining"
+                )
                 if int(response.headers["X-RateLimit-Remaining"]) == 0:
                     reset_time = int(response.headers["X-RateLimit-Reset"])
                     current_time = time.time()
-                    if (
-                        reset_time > current_time
-                    ):  # Verifica se il rate limit non è ancora scaduto
+                    if reset_time > current_time:
                         sleep_time = reset_time - current_time
+                        print(f"Rate limit exceeded. Waiting {sleep_time} seconds")
                         time.sleep(sleep_time)
                         continue
-                    # Se il rate limit è già scaduto, prova subito la prossima richiesta
                     continue
+            else:
+                print(f"Unexpected status code: {response.status_code}")
+                print(f"Response body: {response.text}")
 
         except (requests.RequestException, KeyError) as e:
+            print(f"Error during request: {str(e)}")
             if attempt < MAX_RETRIES - 1:
+                print(f"Waiting {RETRY_DELAY} seconds before retry")
                 time.sleep(RETRY_DELAY)
                 continue
             raise RuntimeError(
