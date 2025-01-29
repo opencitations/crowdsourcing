@@ -24,6 +24,7 @@ import time
 import shutil
 from datetime import datetime
 from typing import List, Optional, Tuple
+import logging
 
 import requests
 from oc_ds_converter.oc_idmanager.base import IdentifierManager
@@ -36,6 +37,15 @@ from oc_ds_converter.oc_idmanager.url import URLManager
 from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
 from oc_validator.main import ClosureValidator
+
+
+def setup_logging():
+    """Configure logging to output to console only."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[logging.StreamHandler()],  # Solo output su console
+    )
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
@@ -105,20 +115,27 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         - bool: Whether the content is valid
         - str: Validation message or error details
     """
+    logger = logging.getLogger(__name__)
+
+    logger.info("Starting validation")
+    logger.info(f"Validating title: {issue_title}")
+
     # First validate the title format
     is_valid_title, title_message = _validate_title(issue_title)
     if not is_valid_title:
+        logger.warning(f"Invalid title format: {title_message}")
         return False, title_message
 
     # Check for required separator
     if "===###===@@@===" not in issue_body:
+        logger.warning("Missing required separator in issue body")
         return (
             False,
             'Please use the separator "===###===@@@===" to divide metadata from citations, as shown in the following guide: https://github.com/opencitations/crowdsourcing/blob/main/README.md',
         )
 
     try:
-        # Create validation output directory if it doesn't exist
+        logger.info("Creating validation output directory")
         os.makedirs("validation_output", exist_ok=True)
 
         # Split the data into metadata and citations
@@ -196,6 +213,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         )
 
     except Exception as e:
+        logger.error(f"Validation error: {e}", exc_info=True)
         # Clean up temporary files and directory in case of error
         cleanup_files = [
             "temp_metadata.csv",
@@ -205,7 +223,6 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
             if os.path.exists(file):
                 os.remove(file)
 
-        # Remove validation_output directory if it exists
         if os.path.exists("validation_output"):
             shutil.rmtree("validation_output")
 
@@ -577,16 +594,28 @@ def get_open_issues() -> List[dict]:
 
 
 def process_open_issues() -> None:
+    """Process all open issues with detailed logging."""
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
     try:
+        logger.info("Starting to process open issues")
         issues = get_open_issues()
+        logger.info(f"Found {len(issues)} open issues to process")
+
         data_to_store = list()
 
         for issue in issues:
             issue_number = issue["number"]
+            logger.info(f"Processing issue #{issue_number}")
+
             username = issue["author"]["login"]
+            logger.info(f"Getting user ID for {username}")
             user_id = get_user_id(username)
+            logger.info(f"User ID for {username}: {user_id}")
 
             if not is_in_safe_list(user_id):
+                logger.warning(f"User {username} (ID: {user_id}) not in safe list")
                 answer(
                     False,
                     "To make a deposit, please contact OpenCitations at <contact@opencitations.net> to register as a trusted user",
@@ -595,27 +624,53 @@ def process_open_issues() -> None:
                 )
                 continue
 
+            logger.info(f"User {username} is authorized")
             issue_title = issue["title"]
             issue_body = issue["body"]
             created_at = issue["createdAt"]
             had_primary_source = issue["url"]
 
+            logger.info(f"Validating issue #{issue_number}")
             is_valid, message = validate(issue_title, issue_body)
+            logger.info(
+                f"Validation result for #{issue_number}: valid={is_valid}, message={message}"
+            )
+
             answer(is_valid, message, issue_number, is_authorized=True)
+            logger.info(f"Posted answer to issue #{issue_number}")
 
             if is_valid:
-                data_to_store.append(
-                    get_data_to_store(
+                logger.info(f"Getting data to store for issue #{issue_number}")
+                try:
+                    issue_data = get_data_to_store(
                         issue_title, issue_body, created_at, had_primary_source, user_id
                     )
-                )
+                    data_to_store.append(issue_data)
+                    logger.info(
+                        f"Successfully processed data for issue #{issue_number}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Error processing data for issue #{issue_number}: {e}"
+                    )
+                    continue
 
         if data_to_store:
-            deposit_on_zenodo(data_to_store)
+            logger.info(f"Attempting to deposit {len(data_to_store)} items to Zenodo")
+            try:
+                deposit_on_zenodo(data_to_store)
+                logger.info("Successfully deposited data to Zenodo")
+            except Exception as e:
+                logger.error(f"Failed to deposit data to Zenodo: {e}")
+                raise
+        else:
+            logger.info("No valid data to deposit to Zenodo")
 
     except Exception as e:
-        print(f"Error processing issues: {e}")
+        logger.error(f"Error processing issues: {e}", exc_info=True)
         raise
+    finally:
+        logger.info("Completed processing open issues")
 
 
 if __name__ == "__main__":  # pragma: no cover
