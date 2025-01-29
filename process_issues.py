@@ -201,7 +201,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
 
         return (
             True,
-            "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [CROCI](https://opencitations.net/index/croci) index and metadata on OpenCitations Meta",
+            "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [OpenCitations Index](https://opencitations.net/index) and metadata on [OpenCitations Meta](https://opencitations.net/meta)",
         )
 
     except Exception as e:

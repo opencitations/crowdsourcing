@@ -6,7 +6,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
 ![Poetry](https://img.shields.io/badge/poetry-1.4.1-beige?logo=poetry&logoColor=white)
 
-In this repository, trusted agents can deposit citations and bibliographic metadata for publication through the OpenCitations CROCI and OpenCitations Meta indexes.
+In this repository, trusted agents can deposit citations and bibliographic metadata for publication through [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta).
 
 ## How to make a deposit
 
@@ -91,4 +91,4 @@ Note: Only users in the safe list can make deposits. If you're not in the safe l
 
 ## History and provenance
 
-Once a month, valid deposits will be uploaded to Zenodo and ingested by CROCI and OpenCitations Meta. The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
+Once a month, valid deposits will be uploaded to Zenodo and ingested by [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta). The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
