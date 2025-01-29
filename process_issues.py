@@ -191,13 +191,26 @@ def get_user_id(username: str) -> Optional[int]:
         try:
             response = requests.get(
                 f"https://api.github.com/users/{username}",
-                headers={"Accept": "application/vnd.github+json"},
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                },
                 timeout=30,
             )
             if response.status_code == 200:
                 return response.json().get("id")
             elif response.status_code == 404:
                 return None
+            # Handle rate limiting
+            elif (
+                response.status_code == 403
+                and "X-RateLimit-Remaining" in response.headers
+            ):
+                if int(response.headers["X-RateLimit-Remaining"]) == 0:
+                    reset_time = int(response.headers["X-RateLimit-Reset"])
+                    sleep_time = max(reset_time - time.time(), 0)
+                    time.sleep(sleep_time)
+                    continue
             # Altri status code indicano problemi con l'API, quindi continuiamo a riprovare
 
         except requests.ReadTimeout:
@@ -237,12 +250,8 @@ def get_data_to_store(
             section.strip() for section in issue_body.split("===###===@@@===")
         ]
 
-        # Parse CSVs into dictionaries with error handling
-        try:
-            metadata = list(csv.DictReader(io.StringIO(metadata_csv)))
-            citations = list(csv.DictReader(io.StringIO(citations_csv)))
-        except csv.Error as e:
-            raise ValueError(f"Invalid CSV format in issue body: {str(e)}")
+        metadata = list(csv.DictReader(io.StringIO(metadata_csv)))
+        citations = list(csv.DictReader(io.StringIO(citations_csv)))
 
         # Validate required data
         if not metadata or not citations:
@@ -401,11 +410,7 @@ def is_in_safe_list(user_id: int) -> bool:
 
 
 def get_open_issues() -> List[dict]:
-    """Fetch open issues with 'deposit' label using GitHub REST API.
-
-    Returns:
-        List of issue dictionaries containing title, body, number, author, created_at and url
-    """
+    """Fetch open issues with 'deposit' label using GitHub REST API."""
     MAX_RETRIES = 3
     RETRY_DELAY = 5
 
@@ -428,7 +433,6 @@ def get_open_issues() -> List[dict]:
 
             if response.status_code == 200:
                 issues = response.json()
-                # Transform response to match expected format
                 return [
                     {
                         "title": issue["title"],
@@ -444,15 +448,20 @@ def get_open_issues() -> List[dict]:
             elif response.status_code == 404:
                 return []
 
-            # Handle rate limiting
             elif (
                 response.status_code == 403
                 and "X-RateLimit-Remaining" in response.headers
             ):
                 if int(response.headers["X-RateLimit-Remaining"]) == 0:
                     reset_time = int(response.headers["X-RateLimit-Reset"])
-                    sleep_time = max(reset_time - time.time(), 0)
-                    time.sleep(sleep_time)
+                    current_time = time.time()
+                    if (
+                        reset_time > current_time
+                    ):  # Verifica se il rate limit non è ancora scaduto
+                        sleep_time = reset_time - current_time
+                        time.sleep(sleep_time)
+                        continue
+                    # Se il rate limit è già scaduto, prova subito la prossima richiesta
                     continue
 
         except (requests.RequestException, KeyError) as e:

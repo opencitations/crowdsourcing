@@ -21,6 +21,7 @@ from unittest.mock import MagicMock, patch
 import json
 import requests
 from datetime import datetime
+from dotenv import load_dotenv
 
 from process_issues import (
     _validate_title,
@@ -36,6 +37,8 @@ from process_issues import (
     deposit_on_zenodo,
 )
 from requests.exceptions import RequestException
+
+load_dotenv()  # Carica le variabili dal file .env
 
 
 class TestTitleValidation(unittest.TestCase):
@@ -221,8 +224,10 @@ class TestUserValidation(unittest.TestCase):
 
     def test_get_user_id_real_user(self):
         """Test getting ID of a real GitHub user"""
-        user_id = get_user_id("arcangelo7")
-        self.assertEqual(user_id, 42008604)
+        with patch.dict("os.environ", {"GH_TOKEN": os.environ.get("GH_TOKEN")}):
+            user_id = get_user_id("arcangelo7")
+            print("user_id", user_id)
+            self.assertEqual(user_id, 42008604)
 
     def test_get_user_id_nonexistent_user(self):
         """Test getting ID of a nonexistent GitHub user"""
@@ -240,6 +245,123 @@ class TestUserValidation(unittest.TestCase):
     def test_is_in_safe_list_nonexistent_user(self):
         """Test with a nonexistent user ID"""
         self.assertFalse(is_in_safe_list(999999999))
+
+    @patch("requests.get")
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_get_user_id_rate_limit(self, mock_time, mock_sleep, mock_get):
+        """Test rate limit handling in get_user_id"""
+        # Mock current time
+        current_time = 1000000
+        mock_time.return_value = current_time
+
+        # Setup responses
+        rate_limited_response = MagicMock()
+        rate_limited_response.status_code = 403
+        rate_limited_response.headers = {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(current_time + 30),  # Reset in 30 seconds
+        }
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {"id": 12345}
+
+        # First call hits rate limit, second call succeeds
+        mock_get.side_effect = [rate_limited_response, success_response]
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            user_id = get_user_id("test-user")
+
+        # Verify correct user ID was returned
+        self.assertEqual(user_id, 12345)
+
+        # Verify sleep was called with correct duration
+        mock_sleep.assert_called_once_with(30)
+
+        # Verify correct number of API calls
+        self.assertEqual(mock_get.call_count, 2)
+
+        # Verify API calls were correct
+        for call in mock_get.call_args_list:
+            args, kwargs = call
+            self.assertEqual(args[0], "https://api.github.com/users/test-user")
+            self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
+
+    @patch("requests.get")
+    @patch("time.sleep")  # Mock sleep to speed up test
+    def test_get_user_id_connection_error_retry(self, mock_sleep, mock_get):
+        """Test retry behavior when connection errors occur"""
+        # Configure mock to fail with connection error twice then succeed
+        mock_get.side_effect = [
+            requests.ConnectionError,
+            requests.ConnectionError,
+            MagicMock(status_code=200, json=lambda: {"id": 12345}),
+        ]
+
+        user_id = get_user_id("test-user")
+
+        self.assertEqual(user_id, 12345)
+        self.assertEqual(mock_get.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_sleep.assert_called_with(5)  # Verify sleep duration
+
+    @patch("requests.get")
+    @patch("time.sleep")
+    def test_get_user_id_all_retries_fail(self, mock_sleep, mock_get):
+        """Test behavior when all retry attempts fail"""
+        # Configure mock to fail all three attempts
+        mock_get.side_effect = [
+            requests.ConnectionError,
+            requests.ConnectionError,
+            requests.ConnectionError,
+        ]
+
+        user_id = get_user_id("test-user")
+
+        self.assertIsNone(user_id)
+        self.assertEqual(mock_get.call_count, 3)
+        self.assertEqual(
+            mock_sleep.call_count, 3
+        )  # Updated to expect 3 sleeps - one for each ConnectionError
+
+    def test_is_in_safe_list_file_not_found(self):
+        """Test behavior when safe_list.txt doesn't exist"""
+        # Ensure the file doesn't exist
+        if os.path.exists("safe_list.txt"):
+            os.remove("safe_list.txt")
+
+        # Test with any user ID - should return False when file is missing
+        self.assertFalse(is_in_safe_list(42008604))
+
+    @patch("requests.get")
+    @patch("time.sleep")
+    def test_get_user_id_timeout_retry(self, mock_sleep, mock_get):
+        """Test retry behavior when requests timeout"""
+        # Configure mock to timeout twice then succeed
+        mock_get.side_effect = [
+            requests.ReadTimeout,
+            requests.ReadTimeout,
+            MagicMock(status_code=200, json=lambda: {"id": 12345}),
+        ]
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            user_id = get_user_id("test-user")
+
+        # Verify correct user ID was returned after retries
+        self.assertEqual(user_id, 12345)
+
+        # Verify correct number of attempts
+        self.assertEqual(mock_get.call_count, 3)
+
+        # Verify no sleep was called (ReadTimeout doesn't trigger sleep)
+        mock_sleep.assert_not_called()
+
+        # Verify API calls were correct
+        for call in mock_get.call_args_list:
+            args, kwargs = call
+            self.assertEqual(args[0], "https://api.github.com/users/test-user")
+            self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
 
 
 class TestGitHubAPI(unittest.TestCase):
@@ -292,29 +414,54 @@ class TestGitHubAPI(unittest.TestCase):
         self.assertEqual(issues, [])
 
     @patch("requests.get")
-    @patch("time.sleep")  # Mock sleep to speed up tests
-    def test_rate_limit_handling(self, mock_sleep, mock_get):
-        """Test handling of rate limiting"""
-        # First response indicates rate limit hit
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_rate_limit_retry(self, mock_time, mock_sleep, mock_get):
+        """Test retry behavior when hitting rate limits"""
+        # Mock current time to have consistent test behavior
+        current_time = 1000000
+        mock_time.return_value = current_time
+
+        # Setup mock responses
         rate_limited_response = MagicMock()
         rate_limited_response.status_code = 403
         rate_limited_response.headers = {
             "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": str(int(time.time()) + 3600),
+            "X-RateLimit-Reset": str(current_time + 30),  # Reset in 30 seconds
         }
 
-        # Second response succeeds
         success_response = MagicMock()
         success_response.status_code = 200
-        success_response.json.return_value = self.sample_issues
+        success_response.json.return_value = [
+            {
+                "title": "Test Issue",
+                "body": "Test Body",
+                "number": 1,
+                "user": {"login": "test-user"},
+                "created_at": "2024-01-01T00:00:00Z",
+                "html_url": "https://github.com/test/1",
+            }
+        ]
 
+        # First call hits rate limit, second call succeeds
         mock_get.side_effect = [rate_limited_response, success_response]
 
         with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
             issues = get_open_issues()
 
+        # Verify rate limit handling
         self.assertEqual(len(issues), 1)
-        self.assertTrue(mock_sleep.called)
+        self.assertEqual(issues[0]["title"], "Test Issue")
+
+        # Verify sleep was called with exactly 30 seconds
+        mock_sleep.assert_called_once_with(30)
+
+        # Verify correct API calls
+        self.assertEqual(mock_get.call_count, 2)
+        for call in mock_get.call_args_list:
+            args, kwargs = call
+            self.assertEqual(kwargs["params"]["labels"], "deposit")
+            self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
 
     @patch("requests.get")
     def test_network_error_retry(self, mock_get):
@@ -327,6 +474,73 @@ class TestGitHubAPI(unittest.TestCase):
 
         self.assertIn("Failed to fetch issues after 3 attempts", str(context.exception))
         self.assertEqual(mock_get.call_count, 3)  # Verify 3 retry attempts
+
+    @patch("requests.get")
+    def test_get_open_issues_all_attempts_fail(self, mock_get):
+        """Test that empty list is returned when all attempts fail without exception"""
+        # Create response that fails but doesn't trigger retry logic
+        failed_response = MagicMock()
+        failed_response.status_code = 403
+        # No rate limit headers, so won't trigger rate limit retry logic
+        failed_response.headers = {}
+
+        # Make all attempts return the same failed response
+        mock_get.return_value = failed_response
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            issues = get_open_issues()
+
+        # Verify empty list is returned
+        self.assertEqual(issues, [])
+
+        # Verify we tried MAX_RETRIES times
+        self.assertEqual(mock_get.call_count, 3)
+
+    @patch("requests.get")
+    @patch("time.sleep")
+    @patch("time.time")
+    def test_rate_limit_already_expired(self, mock_time, mock_sleep, mock_get):
+        """Test rate limit handling when reset time is in the past"""
+        # Mock current time
+        current_time = 1000000
+        mock_time.return_value = current_time
+
+        # Setup response with expired rate limit
+        rate_limited_response = MagicMock()
+        rate_limited_response.status_code = 403
+        rate_limited_response.headers = {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": str(current_time - 30),  # Reset time in the past
+        }
+
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = [
+            {
+                "title": "Test Issue",
+                "body": "Test Body",
+                "number": 1,
+                "user": {"login": "test-user"},
+                "created_at": "2024-01-01T00:00:00Z",
+                "html_url": "https://github.com/test/1",
+            }
+        ]
+
+        # First call hits expired rate limit, second call succeeds
+        mock_get.side_effect = [rate_limited_response, success_response]
+
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            issues = get_open_issues()
+
+        # Verify rate limit handling
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0]["title"], "Test Issue")
+
+        # Verify sleep was NOT called since rate limit was already expired
+        mock_sleep.assert_not_called()
+
+        # Verify correct API calls
+        self.assertEqual(mock_get.call_count, 2)
 
 
 class TestAnswerFunction(unittest.TestCase):
@@ -642,8 +856,6 @@ class TestProcessOpenIssues(unittest.TestCase):
     def tearDown(self):
         """Clean up after each test"""
         self.env_patcher.stop()
-        if os.path.exists("data_to_store.json"):
-            os.remove("data_to_store.json")
 
     @patch("process_issues.get_open_issues")
     @patch("process_issues.get_user_id")

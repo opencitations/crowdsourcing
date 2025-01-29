@@ -1,3 +1,5 @@
 .vscode/
 __pycache__/
 id_value.json
+.env
+.coverage

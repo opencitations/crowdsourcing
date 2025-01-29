@@ -16,6 +16,8 @@ oc-validator = "^0.3.3"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^6.0.0"
+python-dotenv = "^1.0.1"
+coverage = "^7.6.10"
 
 [build-system]
 requires = ["poetry-core"]
