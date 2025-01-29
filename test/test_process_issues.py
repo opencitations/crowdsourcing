@@ -37,6 +37,7 @@ from process_issues import (
     validate,
 )
 from requests.exceptions import RequestException
+import yaml
 
 load_dotenv()  # Carica le variabili dal file .env
 
@@ -299,22 +300,25 @@ INVALID_SEPARATOR
 
 class TestUserValidation(unittest.TestCase):
     def setUp(self):
-        # Create a real safe list file with actual GitHub user IDs
-        with open("safe_list.txt", "w") as f:
-            # These are real GitHub user IDs
-            f.write("3869247\n")  # The ID of essepuntato
-            f.write("42008604\n")  # The ID of arcangelo7
+        # Create a test safe list file with actual GitHub user IDs
+        test_safe_list = {
+            "users": [
+                {"id": 3869247, "name": "Silvio Peroni"},
+                {"id": 42008604, "name": "Arcangelo Massari"},
+            ]
+        }
+        with open("safe_list.yaml", "w") as f:
+            yaml.dump(test_safe_list, f)
 
     def tearDown(self):
         # Clean up the test file
-        if os.path.exists("safe_list.txt"):
-            os.remove("safe_list.txt")
+        if os.path.exists("safe_list.yaml"):
+            os.remove("safe_list.yaml")
 
     def test_get_user_id_real_user(self):
         """Test getting ID of a real GitHub user"""
         with patch.dict("os.environ", {"GH_TOKEN": os.environ.get("GH_TOKEN")}):
             user_id = get_user_id("arcangelo7")
-            print("user_id", user_id)
             self.assertEqual(user_id, 42008604)
 
     def test_get_user_id_nonexistent_user(self):
@@ -322,17 +326,37 @@ class TestUserValidation(unittest.TestCase):
         user_id = get_user_id("this_user_definitely_does_not_exist_123456789")
         self.assertIsNone(user_id)
 
-    def test_is_in_safe_list_allowed_user(self):
-        """Test with a real allowed GitHub user ID"""
-        self.assertTrue(is_in_safe_list(42008604))  # arcangelo7's ID
+    def test_is_in_safe_list_authorized(self):
+        """Test that authorized user is in safe list"""
+        self.assertTrue(is_in_safe_list(42008604))
 
-    def test_is_in_safe_list_not_allowed_user(self):
-        """Test with a real but not allowed GitHub user ID"""
-        self.assertFalse(is_in_safe_list(106336590))  # vbrandelero's ID
+    def test_is_in_safe_list_unauthorized(self):
+        """Test that unauthorized user is not in safe list"""
+        self.assertFalse(is_in_safe_list(99999999))
 
-    def test_is_in_safe_list_nonexistent_user(self):
-        """Test with a nonexistent user ID"""
-        self.assertFalse(is_in_safe_list(999999999))
+    def test_is_in_safe_list_file_not_found(self):
+        """Test behavior when safe_list.yaml doesn't exist"""
+        # Ensure the file doesn't exist
+        if os.path.exists("safe_list.yaml"):
+            os.remove("safe_list.yaml")
+
+        # Test with any user ID - should return False when file is missing
+        result = is_in_safe_list(42008604)
+
+        # Verify result is False
+        self.assertFalse(result)
+
+        # Verify empty file was created with proper structure
+        self.assertTrue(os.path.exists("safe_list.yaml"))
+        with open("safe_list.yaml", "r") as f:
+            content = yaml.safe_load(f)
+            self.assertEqual(content, {"users": []})
+
+    def test_is_in_safe_list_invalid_yaml(self):
+        """Test behavior with invalid YAML file"""
+        with open("safe_list.yaml", "w") as f:
+            f.write("invalid: yaml: content: [")
+        self.assertFalse(is_in_safe_list(42008604))
 
     @patch("requests.get")
     @patch("time.sleep")
@@ -412,15 +436,6 @@ class TestUserValidation(unittest.TestCase):
         self.assertEqual(
             mock_sleep.call_count, 3
         )  # Updated to expect 3 sleeps - one for each ConnectionError
-
-    def test_is_in_safe_list_file_not_found(self):
-        """Test behavior when safe_list.txt doesn't exist"""
-        # Ensure the file doesn't exist
-        if os.path.exists("safe_list.txt"):
-            os.remove("safe_list.txt")
-
-        # Test with any user ID - should return False when file is missing
-        self.assertFalse(is_in_safe_list(42008604))
 
     @patch("requests.get")
     @patch("time.sleep")
@@ -1184,6 +1199,73 @@ class TestProcessOpenIssues(unittest.TestCase):
             process_open_issues()
 
         self.assertEqual(str(context.exception), "Test error")
+
+    @patch("process_issues.get_open_issues")
+    @patch("process_issues.get_user_id")
+    @patch("process_issues.is_in_safe_list")
+    @patch("process_issues.validate")
+    @patch("process_issues.get_data_to_store")
+    @patch("process_issues.answer")
+    @patch("process_issues.deposit_on_zenodo")
+    def test_process_open_issues_data_processing_error(
+        self,
+        mock_deposit,
+        mock_answer,
+        mock_get_data,
+        mock_validate,
+        mock_safe_list,
+        mock_user_id,
+        mock_get_issues,
+    ):
+        """Test handling of get_data_to_store error for an issue"""
+        # Setup mocks
+        mock_get_issues.return_value = [self.sample_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+        mock_validate.return_value = (True, "Valid data")
+        mock_get_data.side_effect = Exception("Data processing error")
+
+        # Run function
+        process_open_issues()
+
+        # Verify error was handled and processing continued
+        mock_get_data.assert_called_once()
+        mock_answer.assert_called_once()
+        # Verify deposit wasn't attempted since no valid data was processed
+        mock_deposit.assert_not_called()
+
+    @patch("process_issues.get_open_issues")
+    @patch("process_issues.get_user_id")
+    @patch("process_issues.is_in_safe_list")
+    @patch("process_issues.validate")
+    @patch("process_issues.get_data_to_store")
+    @patch("process_issues.answer")
+    @patch("process_issues.deposit_on_zenodo")
+    def test_process_open_issues_zenodo_deposit_error(
+        self,
+        mock_deposit,
+        mock_answer,
+        mock_get_data,
+        mock_validate,
+        mock_safe_list,
+        mock_user_id,
+        mock_get_issues,
+    ):
+        """Test handling of Zenodo deposit error"""
+        # Setup mocks
+        mock_get_issues.return_value = [self.sample_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+        mock_validate.return_value = (True, "Valid data")
+        mock_get_data.return_value = {"test": "data"}
+        mock_deposit.side_effect = Exception("Zenodo deposit error")
+
+        # Verify the Zenodo deposit error is re-raised
+        with self.assertRaises(Exception) as context:
+            process_open_issues()
+
+        self.assertEqual(str(context.exception), "Zenodo deposit error")
+        mock_deposit.assert_called_once()
 
 
 if __name__ == "__main__":  # pragma: no cover

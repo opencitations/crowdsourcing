@@ -22,7 +22,6 @@ import logging
 import os
 import re
 import shutil
-import sys
 import time
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -38,6 +37,7 @@ from oc_ds_converter.oc_idmanager.url import URLManager
 from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
 from oc_validator.main import ClosureValidator
+import yaml
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
@@ -519,14 +519,28 @@ def deposit_on_zenodo(data_to_store: List[dict]) -> None:
 
 
 def is_in_safe_list(user_id: int) -> bool:
-    """Check if a user ID is in the safe list."""
+    """Check if a user ID is in the safe list.
+
+    Args:
+        user_id: GitHub user ID to check
+
+    Returns:
+        bool: True if user is in safe list, False otherwise
+    """
     try:
-        with open("safe_list.txt", "r") as f:
-            return str(user_id) in {line.strip() for line in f}
+        with open("safe_list.yaml", "r") as f:
+            safe_list = yaml.safe_load(f)
+            # Extract just the IDs for comparison
+            allowed_ids = {str(user["id"]) for user in safe_list.get("users", [])}
+            return str(user_id) in allowed_ids
     except FileNotFoundError:
-        print("Warning: safe_list.txt not found, creating empty file")
-        with open("safe_list.txt", "w") as f:
-            f.write("")  # Create empty file
+        print("Warning: safe_list.yaml not found, creating empty file")
+        # Create empty safe list file with proper structure
+        with open("safe_list.yaml", "w") as f:
+            yaml.dump({"users": []}, f)
+        return False
+    except yaml.YAMLError as e:
+        print(f"Error parsing safe_list.yaml: {e}")
         return False
 
 
