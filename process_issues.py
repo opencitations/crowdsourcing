@@ -235,6 +235,7 @@ def answer(
         issue_number: GitHub issue number to update
         is_authorized: Whether the user is authorized (in safe list)
     """
+    print(f"Updating issue #{issue_number}")
     # Determine label based on validation and authorization
     if not is_authorized:
         label = "rejected"
@@ -243,43 +244,57 @@ def answer(
     else:
         label = "to be processed"
 
+    print(f"Adding label '{label}' to issue #{issue_number}")
+
+    # Get repository from environment
+    repository = os.environ.get("GITHUB_REPOSITORY", "opencitations/crowdsourcing")
+
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
-    base_url = "https://api.github.com/repos/opencitations/crowdsourcing/issues"
+    base_url = f"https://api.github.com/repos/{repository}/issues"
 
     # Add label
     try:
-        requests.post(
+        response = requests.post(
             f"{base_url}/{issue_number}/labels",
             headers=headers,
             json={"labels": [label]},
             timeout=30,
         )
+        response.raise_for_status()
+        print(f"Successfully added label '{label}' to issue #{issue_number}")
     except requests.RequestException as e:
-        print(f"Error adding label to issue {issue_number}: {e}")
+        print(f"Error adding label to issue #{issue_number}: {e}")
         raise
 
     # Add comment and close issue
     try:
-        requests.post(
+        # Add comment
+        response = requests.post(
             f"{base_url}/{issue_number}/comments",
             headers=headers,
             json={"body": message},
             timeout=30,
         )
+        response.raise_for_status()
+        print(f"Successfully added comment to issue #{issue_number}")
 
-        requests.patch(
+        # Close issue
+        response = requests.patch(
             f"{base_url}/{issue_number}",
             headers=headers,
             json={"state": "closed"},
             timeout=30,
         )
+        response.raise_for_status()
+        print(f"Successfully closed issue #{issue_number}")
+
     except requests.RequestException as e:
-        print(f"Error closing issue {issue_number}: {e}")
+        print(f"Error updating issue #{issue_number}: {e}")
         raise
 
 
@@ -504,18 +519,14 @@ def deposit_on_zenodo(data_to_store: List[dict]) -> None:
 
 
 def is_in_safe_list(user_id: int) -> bool:
-    """Check if a user ID is in the safe list.
-
-    Args:
-        user_id: GitHub user ID to check
-
-    Returns:
-        True if user is in safe list, False otherwise
-    """
+    """Check if a user ID is in the safe list."""
     try:
         with open("safe_list.txt", "r") as f:
             return str(user_id) in {line.strip() for line in f}
     except FileNotFoundError:
+        print("Warning: safe_list.txt not found, creating empty file")
+        with open("safe_list.txt", "w") as f:
+            f.write("")  # Create empty file
         return False
 
 
