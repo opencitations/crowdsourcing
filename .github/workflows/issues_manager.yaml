@@ -5,7 +5,9 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
-      ZENODO: ${{ secrets.ZENODO }}
+      ZENODO_PRODUCTION: ${{ secrets.ZENODO_PRODUCTION }}
+      ZENODO_SANDBOX: ${{ secrets.ZENODO_SANDBOX }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT || 'development' }}
     steps:
       - name: List files in the repository
         uses: actions/checkout@v4

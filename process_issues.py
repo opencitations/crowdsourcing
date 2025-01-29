@@ -372,32 +372,39 @@ def get_data_to_store(
         raise ValueError(f"Failed to process issue data: {str(e)}")
 
 
-def _create_deposition_resource(today: str) -> Tuple[str, str]:
-    """Create a new Zenodo deposition for weekly data.
+def _get_zenodo_token() -> str:
+    """Get the appropriate Zenodo token based on environment."""
+    environment = os.environ.get("ENVIRONMENT", "development")
+    if environment == "development":
+        token = os.environ.get("ZENODO_SANDBOX")
+        if not token:
+            raise ValueError("ZENODO_SANDBOX token not found in environment")
+        return token
+    else:
+        token = os.environ.get("ZENODO_PRODUCTION")
+        if not token:
+            raise ValueError("ZENODO_PRODUCTION token not found in environment")
+        return token
 
-    Args:
-        today: Current date in YYYY-MM-DD format
 
-    Returns:
-        Tuple containing (deposition_id, bucket_url)
-
-    Raises:
-        requests.RequestException: If the Zenodo API request fails
-    """
+def _create_deposition_resource(
+    date: str, base_url: str = "https://zenodo.org/api"
+) -> Tuple[str, str]:
+    """Create a new deposition resource on Zenodo."""
     headers = {"Content-Type": "application/json"}
 
     metadata = {
         "metadata": {
             "upload_type": "dataset",
-            "publication_date": today,
-            "title": f"OpenCitations crowdsourcing: deposits of the week before {today}",
+            "publication_date": date,
+            "title": f"OpenCitations crowdsourcing: deposits of the week before {date}",
             "creators": [
                 {
                     "name": "crocibot",
                     "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
                 }
             ],
-            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every week. This upload contains the data of deposit issues published in the week before {today}.",
+            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every week. This upload contains the data of deposit issues published in the week before {date}.",
             "access_right": "open",
             "license": "CC0-1.0",
             "prereserve_doi": True,
@@ -419,8 +426,8 @@ def _create_deposition_resource(today: str) -> Tuple[str, str]:
     }
 
     response = requests.post(
-        "https://zenodo.org/api/deposit/depositions",
-        params={"access_token": os.environ["ZENODO"]},
+        f"{base_url}/deposit/depositions",
+        params={"access_token": _get_zenodo_token()},
         json=metadata,
         headers=headers,
         timeout=30,
@@ -432,62 +439,57 @@ def _create_deposition_resource(today: str) -> Tuple[str, str]:
     return data["id"], data["links"]["bucket"]
 
 
-def _upload_data(today: str, bucket: str) -> None:
-    """Upload the weekly data file to Zenodo bucket.
-
-    Args:
-        today: Current date in YYYY-MM-DD format
-        bucket: Zenodo bucket URL for upload
-
-    Raises:
-        requests.RequestException: If the upload fails
-        FileNotFoundError: If data file is missing
-    """
-    filename = f"{today}_weekly_deposit.json"
+def _upload_data(
+    date: str, bucket: str, base_url: str = "https://zenodo.org/api"
+) -> None:
+    """Upload data file to Zenodo bucket."""
+    filename = f"{date}_weekly_deposit.json"
 
     with open("data_to_store.json", "rb") as fp:
         response = requests.put(
             f"{bucket}/{filename}",
             data=fp,
-            params={"access_token": os.environ["ZENODO"]},
+            params={"access_token": _get_zenodo_token()},
             timeout=30,
         )
         response.raise_for_status()
 
 
 def deposit_on_zenodo(data_to_store: List[dict]) -> None:
-    """Store weekly data on Zenodo with proper metadata.
+    """Deposit data on Zenodo based on environment."""
+    environment = os.environ.get("ENVIRONMENT", "development")
 
-    Args:
-        data_to_store: List of dictionaries containing the weekly data
-
-    Raises:
-        requests.RequestException: If any Zenodo API request fails
-        IOError: If there are file operation errors
-    """
-    today = datetime.now().strftime("%Y-%m-%d")
+    # In development, usa la Zenodo Sandbox
+    if environment == "development":
+        base_url = "https://sandbox.zenodo.org/api"
+    else:
+        base_url = "https://zenodo.org/api"
 
     try:
-        # Save data to temporary file
-        with open("data_to_store.json", "w", encoding="utf-8") as outfile:
-            json.dump(data_to_store, outfile, ensure_ascii=False, indent=2)
+        # Salva i dati in un file temporaneo
+        with open("data_to_store.json", "w") as f:
+            json.dump(data_to_store, f)
 
-        # Create deposition and get upload location
-        deposition_id, bucket = _create_deposition_resource(today)
+        # Crea una nuova deposizione
+        deposition_id, bucket = _create_deposition_resource(
+            datetime.now().strftime("%Y-%m-%d"), base_url=base_url
+        )
 
-        # Upload the data file
-        _upload_data(today, bucket)
+        # Carica i dati
+        _upload_data(datetime.now().strftime("%Y-%m-%d"), bucket, base_url=base_url)
 
-        # Publish the deposition
+        # Pubblica la deposizione
         response = requests.post(
-            f"https://zenodo.org/api/deposit/depositions/{deposition_id}/actions/publish",
-            params={"access_token": os.environ["ZENODO"]},
+            f"{base_url}/deposit/depositions/{deposition_id}/actions/publish",
+            params={"access_token": _get_zenodo_token()},
             timeout=30,
         )
-        response.raise_for_status()
+
+        if response.status_code != 202:
+            raise Exception(f"Failed to publish deposition: {response.text}")
 
     finally:
-        # Cleanup temporary file
+        # Pulisci i file temporanei
         if os.path.exists("data_to_store.json"):
             os.remove("data_to_store.json")
 

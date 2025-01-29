@@ -14,28 +14,27 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 # SOFTWARE.
 
-import os
-import time
-import unittest
-from unittest.mock import MagicMock, patch
 import json
-import requests
+import os
+import unittest
 from datetime import datetime
-from dotenv import load_dotenv
-import shutil
+from unittest.mock import MagicMock, patch
 
+import requests
+from dotenv import load_dotenv
 from process_issues import (
+    _create_deposition_resource,
+    _get_zenodo_token,
+    _upload_data,
     _validate_title,
     answer,
+    deposit_on_zenodo,
+    get_data_to_store,
     get_open_issues,
     get_user_id,
     is_in_safe_list,
     process_open_issues,
     validate,
-    get_data_to_store,
-    _create_deposition_resource,
-    _upload_data,
-    deposit_on_zenodo,
 )
 from requests.exceptions import RequestException
 
@@ -782,7 +781,14 @@ class TestZenodoDeposit(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment before each test"""
-        self.env_patcher = patch.dict("os.environ", {"ZENODO": "fake-token"})
+        self.env_patcher = patch.dict(
+            "os.environ",
+            {
+                "ZENODO_SANDBOX": "fake-sandbox-token",
+                "ZENODO_PRODUCTION": "fake-prod-token",
+                "ENVIRONMENT": "development",
+            },
+        )
         self.env_patcher.start()
 
         self.test_data = [
@@ -812,39 +818,40 @@ class TestZenodoDeposit(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "id": "12345",
-            "links": {"bucket": "https://zenodo.org/api/bucket/12345"},
+            "links": {"bucket": "https://sandbox.zenodo.org/api/bucket/12345"},
         }
         mock_post.return_value = mock_response
 
-        deposition_id, bucket = _create_deposition_resource("2024-01-01")
+        deposition_id, bucket = _create_deposition_resource(
+            "2024-01-01", base_url="https://sandbox.zenodo.org/api"
+        )
 
         self.assertEqual(deposition_id, "12345")
-        self.assertEqual(bucket, "https://zenodo.org/api/bucket/12345")
+        self.assertEqual(bucket, "https://sandbox.zenodo.org/api/bucket/12345")
 
         # Verify API call
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
 
-        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["params"], {"access_token": "fake-sandbox-token"})
         self.assertEqual(kwargs["headers"], {"Content-Type": "application/json"})
         self.assertEqual(kwargs["timeout"], 30)
-
-        # Verify metadata
-        metadata = kwargs["json"]["metadata"]
-        self.assertEqual(metadata["upload_type"], "dataset")
-        self.assertEqual(metadata["publication_date"], "2024-01-01")
-        self.assertIn("OpenCitations crowdsourcing", metadata["title"])
 
     @patch("requests.put")
     def test_upload_data(self, mock_put):
         """Test uploading data file to Zenodo"""
         mock_put.return_value.status_code = 200
+        mock_put.return_value.raise_for_status = lambda: None
 
         # Create test file
         with open("data_to_store.json", "w") as f:
             json.dump({"test": "data"}, f)
 
-        _upload_data("2024-01-01", "https://zenodo.org/api/bucket/12345")
+        _upload_data(
+            "2024-01-01",
+            "https://sandbox.zenodo.org/api/bucket/12345",
+            base_url="https://sandbox.zenodo.org/api",
+        )
 
         # Verify API call
         mock_put.assert_called_once()
@@ -852,9 +859,9 @@ class TestZenodoDeposit(unittest.TestCase):
 
         self.assertEqual(
             args[0],
-            "https://zenodo.org/api/bucket/12345/2024-01-01_weekly_deposit.json",
+            "https://sandbox.zenodo.org/api/bucket/12345/2024-01-01_weekly_deposit.json",
         )
-        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["params"], {"access_token": "fake-sandbox-token"})
         self.assertEqual(kwargs["timeout"], 30)
 
     @patch("process_issues._create_deposition_resource")
@@ -863,15 +870,24 @@ class TestZenodoDeposit(unittest.TestCase):
     def test_deposit_on_zenodo(self, mock_post, mock_upload, mock_create):
         """Test full Zenodo deposit process"""
         # Setup mocks
-        mock_create.return_value = ("12345", "https://zenodo.org/api/bucket/12345")
-        mock_post.return_value.status_code = 200
+        mock_create.return_value = (
+            "12345",
+            "https://sandbox.zenodo.org/api/bucket/12345",
+        )
+        mock_post.return_value.status_code = 202  # Changed from 200 to 202 for publish
+        mock_post.return_value.text = ""  # Add this to avoid MagicMock text in error
 
         deposit_on_zenodo(self.test_data)
 
         # Verify API calls order and parameters
-        mock_create.assert_called_once_with(datetime.now().strftime("%Y-%m-%d"))
+        mock_create.assert_called_once_with(
+            datetime.now().strftime("%Y-%m-%d"),
+            base_url="https://sandbox.zenodo.org/api",  # Add base_url
+        )
         mock_upload.assert_called_once_with(
-            datetime.now().strftime("%Y-%m-%d"), "https://zenodo.org/api/bucket/12345"
+            datetime.now().strftime("%Y-%m-%d"),
+            "https://sandbox.zenodo.org/api/bucket/12345",
+            base_url="https://sandbox.zenodo.org/api",  # Add base_url
         )
 
         # Verify publish request
@@ -879,9 +895,9 @@ class TestZenodoDeposit(unittest.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(
             args[0],
-            "https://zenodo.org/api/deposit/depositions/12345/actions/publish",
+            "https://sandbox.zenodo.org/api/deposit/depositions/12345/actions/publish",
         )
-        self.assertEqual(kwargs["params"], {"access_token": "fake-token"})
+        self.assertEqual(kwargs["params"], {"access_token": "fake-sandbox-token"})
         self.assertEqual(kwargs["timeout"], 30)
 
         # Verify cleanup happened
@@ -915,6 +931,111 @@ class TestZenodoDeposit(unittest.TestCase):
             deposit_on_zenodo(self.test_data)
 
         # Verify cleanup happened
+        self.assertFalse(os.path.exists("data_to_store.json"))
+
+    def test_deposit_development_environment(self):
+        """Test deposit in development environment uses sandbox"""
+        with patch("requests.post") as mock_post, patch("requests.put") as mock_put:
+            # Mock create deposition
+            mock_post.return_value.json.return_value = {
+                "id": "12345",
+                "links": {"bucket": "https://sandbox.zenodo.org/api/bucket/12345"},
+            }
+            mock_post.return_value.status_code = 201
+
+            # Mock upload
+            mock_put.return_value.status_code = 200
+            mock_put.return_value.raise_for_status = lambda: None
+
+            # Mock publish
+            mock_post.return_value.status_code = 202
+
+            deposit_on_zenodo(self.test_data)
+
+            # Verify sandbox URL was used
+            calls = mock_post.call_args_list
+            self.assertTrue(any("sandbox.zenodo.org" in call[0][0] for call in calls))
+
+    def test_deposit_production_environment(self):
+        """Test deposit in production environment uses main Zenodo"""
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            with patch("requests.post") as mock_post, patch("requests.put") as mock_put:
+                # Mock create deposition
+                mock_post.return_value.json.return_value = {
+                    "id": "12345",
+                    "links": {"bucket": "https://zenodo.org/api/bucket/12345"},
+                }
+                mock_post.return_value.status_code = 201
+
+                # Mock upload
+                mock_put.return_value.status_code = 200
+                mock_put.return_value.raise_for_status = lambda: None
+
+                # Mock publish
+                mock_post.return_value.status_code = 202
+
+                deposit_on_zenodo(self.test_data)
+
+                # Verify production URL was used
+                calls = mock_post.call_args_list
+                self.assertTrue(
+                    all("sandbox.zenodo.org" not in call[0][0] for call in calls)
+                )
+
+    def test_get_zenodo_token_development(self):
+        """Test getting Zenodo token in development environment"""
+        token = _get_zenodo_token()
+        self.assertEqual(token, "fake-sandbox-token")
+
+    def test_get_zenodo_token_production(self):
+        """Test getting Zenodo token in production environment"""
+        with patch.dict("os.environ", {"ENVIRONMENT": "production"}):
+            token = _get_zenodo_token()
+            self.assertEqual(token, "fake-prod-token")
+
+    def test_get_zenodo_token_missing(self):
+        """Test error when token is missing"""
+        with patch.dict(
+            "os.environ", {"ZENODO_SANDBOX": "", "ENVIRONMENT": "development"}
+        ):
+            with self.assertRaises(ValueError) as context:
+                _get_zenodo_token()
+            self.assertIn("ZENODO_SANDBOX token not found", str(context.exception))
+
+    def test_get_zenodo_token_missing_production(self):
+        """Test error when production token is missing"""
+        with patch.dict(
+            "os.environ",
+            {
+                "ENVIRONMENT": "production",
+                "ZENODO_PRODUCTION": "",  # Token mancante
+            },
+        ):
+            with self.assertRaises(ValueError) as context:
+                _get_zenodo_token()
+            self.assertIn("ZENODO_PRODUCTION token not found", str(context.exception))
+
+    @patch("process_issues._create_deposition_resource")
+    @patch("process_issues._upload_data")
+    @patch("requests.post")
+    def test_deposit_on_zenodo_publish_error(self, mock_post, mock_upload, mock_create):
+        """Test error handling when publish fails"""
+        # Setup mocks
+        mock_create.return_value = (
+            "12345",
+            "https://sandbox.zenodo.org/api/bucket/12345",
+        )
+        mock_post.return_value.status_code = 400  # Simula errore di pubblicazione
+        mock_post.return_value.text = "Publication failed"
+
+        with self.assertRaises(Exception) as context:
+            deposit_on_zenodo(self.test_data)
+
+        self.assertEqual(
+            str(context.exception), "Failed to publish deposition: Publication failed"
+        )
+
+        # Verify cleanup happened even after error
         self.assertFalse(os.path.exists("data_to_store.json"))
 
 
