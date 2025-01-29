@@ -1,10 +1,33 @@
 # Crowdsourcing
 
+[<img src="https://img.shields.io/badge/powered%20by-OpenCitations-%239931FC?labelColor=2D22DE" />](http://opencitations.net)
+[![Tests](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml)
+![Coverage](https://byob.yarr.is/arcangelo7/badges/opencitations-crowdsourcing-coverage)
+![Python](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
+![Poetry](https://img.shields.io/badge/poetry-1.4.1-beige?logo=poetry&logoColor=white)
+
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through the OpenCitations CROCI and OpenCitations Meta indexes.
 
 ## How to make a deposit
 
-To make a deposit, open an issue to this repository following the format that will be described below.
+1. Create a new issue in this repository
+2. Label the issue as "deposit" (this is required for the automated processing)
+3. Format your issue title as: `deposit {domain name of journal} {identifier}`
+   - For example: `deposit localhost:330 doi:10.1007/978-3-030-00668-6_8`
+   - Supported identifiers: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, and openalex
+4. In the issue body, include:
+   - Your metadata CSV
+   - The separator `===###===@@@===`
+   - Your citations CSV
+
+The automated system will:
+1. Check if you are in the safe list
+2. Validate your data format
+3. If invalid, comment with validation errors and close the issue
+4. If valid:
+   - Label the issue as "to be processed"
+   - Process and ingest your deposit during the next monthly update
+   - Close the issue and label it as "done" after processing
 
 An example can be found at https://github.com/opencitations/crowdsourcing/issues/1
 
@@ -57,11 +80,15 @@ When you submit an issue, the data is automatically validated using the [oc_vali
 
 ## Next steps
 
-OpenCitations will ingest valid deposits every Saturday at 00:01 and mark the issues as 'done'. The deposits could be:
-- Marked as 'done' if successfully processed
-- Marked as 'rejected' if they don't meet the requirements
-- Marked as 'invalid' if they fail the automatic syntax validation
+OpenCitations will ingest valid deposits once a month. The issues will be labeled as follows:
+
+- **to be processed**: The issue is valid and will be processed (user is authorized and data format is correct)
+- **rejected**: The user is not in the safe list of trusted agents. Please contact OpenCitations at <contact@opencitations.net> to be added to the safe list
+- **invalid**: The data format is incorrect or validation failed (e.g. wrong CSV structure, invalid identifiers)
+- **done**: The issue has been successfully processed and ingested
+
+Note: Only users in the safe list can make deposits. If you're not in the safe list yet, your issues will be automatically labeled as "rejected". To be added to the safe list, please contact OpenCitations at <contact@opencitations.net>.
 
 ## History and provenance
 
-Once a week, valid deposits will be uploaded to Zenodo and ingested by CROCI and OpenCitations Meta. The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
+Once a month, valid deposits will be uploaded to Zenodo and ingested by CROCI and OpenCitations Meta. The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
