@@ -8,6 +8,8 @@ jobs:
     # Run only when the issue has the 'deposit' label
     if: contains(github.event.issue.labels.*.name, 'deposit')
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # Add write permission to commit and push
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       ZENODO_PRODUCTION: ${{ secrets.ZENODO_PRODUCTION }}
@@ -34,3 +36,13 @@ jobs:
         
       - name: Process the issue
         run: poetry run python3 process_issues.py
+
+      # Add new steps to commit and push validation reports
+      - name: Commit validation reports
+        if: always()  # Run even if previous steps fail
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/validation_reports/
+          git commit -m "chore: update validation reports" || echo "No changes to commit"
+          git push || echo "No changes to push"
