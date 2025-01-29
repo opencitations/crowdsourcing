@@ -21,6 +21,7 @@ import json
 import os
 import re
 import time
+import shutil
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -34,7 +35,7 @@ from oc_ds_converter.oc_idmanager.pmid import PMIDManager
 from oc_ds_converter.oc_idmanager.url import URLManager
 from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
-from pandas import read_csv
+from oc_validator.main import ClosureValidator
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
@@ -93,26 +94,124 @@ def _validate_title(title: str) -> Tuple[bool, str]:
 
 
 def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
+    """Validate issue title and body content using oc_validator.
+
+    Args:
+        issue_title: Title of the GitHub issue
+        issue_body: Body content of the GitHub issue
+
+    Returns:
+        Tuple containing:
+        - bool: Whether the content is valid
+        - str: Validation message or error details
+    """
+    # First validate the title format
     is_valid_title, title_message = _validate_title(issue_title)
     if not is_valid_title:
         return False, title_message
+
+    # Check for required separator
     if "===###===@@@===" not in issue_body:
         return (
             False,
-            'Please use the separator "===###===@@@===" to divide metadata from citations, as shown in the following guide: https://github.com/arcangelo7/issues/blob/main/README.md',
+            'Please use the separator "===###===@@@===" to divide metadata from citations, as shown in the following guide: https://github.com/opencitations/crowdsourcing/blob/main/README.md',
         )
+
     try:
+        # Create validation output directory if it doesn't exist
+        os.makedirs("validation_output", exist_ok=True)
+
+        # Split the data into metadata and citations
         split_data = issue_body.split("===###===@@@===")
-        read_csv(io.StringIO(split_data[0].strip()))
-        read_csv(io.StringIO(split_data[1].strip()))
+        metadata_csv = split_data[0].strip()
+        citations_csv = split_data[1].strip()
+
+        # Create temporary files for validation
+        with open("temp_metadata.csv", "w", encoding="utf-8") as f:
+            f.write(metadata_csv)
+        with open("temp_citations.csv", "w", encoding="utf-8") as f:
+            f.write(citations_csv)
+
+        # Initialize and run validator
+        validator = ClosureValidator(
+            meta_csv_doc="temp_metadata.csv",
+            meta_output_dir="validation_output",
+            cits_csv_doc="temp_citations.csv",
+            cits_output_dir="validation_output",
+            strict_sequenciality=True,
+            meta_kwargs={"verify_id_existence": True},
+            cits_kwargs={"verify_id_existence": True},
+        )
+
+        validator.validate()
+
+        # Read validation results from files
+        error_messages = []
+
+        # Check metadata validation results
+        meta_summary_path = os.path.join(
+            "validation_output", "meta_validation_summary.txt"
+        )
+        if os.path.exists(meta_summary_path):
+            with open(meta_summary_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:  # Only add if there are actual errors
+                    error_messages.append("Metadata validation errors:")
+                    error_messages.append(content)
+
+        # Check citations validation results
+        cits_summary_path = os.path.join(
+            "validation_output", "cits_validation_summary.txt"
+        )
+        if os.path.exists(cits_summary_path):
+            with open(cits_summary_path, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                if content:  # Only add if there are actual errors
+                    if (
+                        error_messages
+                    ):  # Add blank line between metadata and citation errors
+                        error_messages.append("")
+                    error_messages.append("Citations validation errors:")
+                    error_messages.append(content)
+
+        # Clean up all temporary files and directory
+        cleanup_files = [
+            "temp_metadata.csv",
+            "temp_citations.csv",
+        ]
+        for file in cleanup_files:
+            if os.path.exists(file):
+                os.remove(file)
+
+        # Remove validation_output directory if it exists
+        if os.path.exists("validation_output"):
+            shutil.rmtree("validation_output")
+
+        if error_messages:
+            return False, "\n".join(error_messages)
+
         return (
             True,
             "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [CROCI](https://opencitations.net/index/croci) index and metadata on OpenCitations Meta",
         )
-    except Exception:
+
+    except Exception as e:
+        # Clean up temporary files and directory in case of error
+        cleanup_files = [
+            "temp_metadata.csv",
+            "temp_citations.csv",
+        ]
+        for file in cleanup_files:
+            if os.path.exists(file):
+                os.remove(file)
+
+        # Remove validation_output directory if it exists
+        if os.path.exists("validation_output"):
+            shutil.rmtree("validation_output")
+
         return (
             False,
-            "The data you provided could not be processed as a CSV. Please, check that the metadata CSV and the citation CSV are valid CSVs",
+            f"Error validating data: {str(e)}. Please ensure both metadata and citations are valid CSVs following the required format.",
         )
 
 

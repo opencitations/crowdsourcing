@@ -22,6 +22,7 @@ import json
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
+import shutil
 
 from process_issues import (
     _validate_title,
@@ -99,7 +100,7 @@ class TestValidation(unittest.TestCase):
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
 "doi:10.1007/978-3-662-07918-8_3","Influence of Dielectric Properties, State, and Electrodes on Electric Strength","Ushakov, Vasily Y.","2004","Insulation of High-Voltage Equipment [isbn:9783642058530 isbn:9783662079188]","","","27-82","book chapter","Springer Science and Business Media LLC [crossref:297]",""
-"doi:10.1016/0021-9991(73)90147-2","Flux-corrected transport. I. SHASTA, a fluid transport algorithm that works","Boris, Jay P; Book, David L","1973-1","Journal of Computational Physics [issn:0021-9991]","11","1","38-69","journal article","Elsevier BV [crossref:78]",""
+"doi:10.1016/0021-9991(73)90147-2","Flux-corrected transport. I. SHASTA, a fluid transport algorithm that works","Boris, Jay P; Book, David L","1973-01","Journal of Computational Physics [issn:0021-9991]","11","1","38-69","journal article","Elsevier BV [crossref:78]",""
 ===###===@@@===
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-662-07918-8_3"
@@ -142,7 +143,10 @@ WRONG_SEPARATOR
 "cite1","cite2","cite3"\""""
         is_valid, message = validate(title, body)
         self.assertFalse(is_valid)
-        self.assertIn("could not be processed as a CSV", message)
+        self.assertIn(
+            "Please ensure both metadata and citations are valid CSVs following the required format.",
+            message,
+        )
 
     def test_get_data_to_store_valid_input(self):
         """Test get_data_to_store with valid input data"""
@@ -207,6 +211,91 @@ INVALID_SEPARATOR
             )
 
         self.assertIn("Failed to process issue data", str(context.exception))
+
+    def test_validation_with_validator(self):
+        """Test validation using the oc_validator library"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
+
+        with patch("process_issues.ClosureValidator") as mock_validator:
+            # Configure mock validator to indicate successful validation
+            mock_instance = mock_validator.return_value
+            mock_instance.validate.return_value = None  # No errors
+
+            is_valid, message = validate(title, body)
+
+            self.assertTrue(is_valid)
+            self.assertIn("Thank you for your contribution", message)
+
+            # Verify validator was called correctly
+            mock_validator.assert_called_once()
+            mock_instance.validate.assert_called_once()
+
+    def test_validation_with_metadata_validation_file(self):
+        """Test validation when metadata validation file contains errors"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # Invalid metadata CSV with missing required fields
+        body = """"wrong_field","another_wrong"
+"value1","value2"
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
+
+        is_valid, message = validate(title, body)
+
+        self.assertFalse(is_valid)
+        self.assertIn("Error validating data", message)
+        self.assertIn("not processable", message)
+        self.assertIn("META-CSV nor CITS-CSV basic structure", message)
+
+    def test_validation_with_both_validation_files(self):
+        """Test validation when both metadata and citations have validation errors"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # Invalid metadata missing fields and invalid citation identifiers
+        body = """"id","title"
+"doi:invalid","Test Title"
+===###===@@@===
+"citing_id","cited_id"
+"invalid:123","another:456"\""""
+
+        is_valid, message = validate(title, body)
+
+        self.assertFalse(is_valid)
+        self.assertIn("Error validating data", message)
+        self.assertIn("not processable", message)
+        self.assertIn("META-CSV nor CITS-CSV basic structure", message)
+
+    def test_validation_reads_validation_files(self):
+        """Test that validation properly reads and processes validation files"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        # Valid CSV structure but with validation errors
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
+
+        # Create validation output directory and files before validation
+        os.makedirs("validation_output", exist_ok=True)
+
+        # Create validation files with errors
+        with open("validation_output/meta_validation_summary.txt", "w") as f:
+            f.write("Some metadata validation error")
+        with open("validation_output/cits_validation_summary.txt", "w") as f:
+            f.write("Some citation validation error")
+
+        is_valid, message = validate(title, body)
+
+        self.assertFalse(is_valid)
+        self.assertIn("Metadata validation errors:", message)
+        self.assertIn("Some metadata validation error", message)
+        self.assertIn("Citations validation errors:", message)
+        self.assertIn("Some citation validation error", message)
+        self.assertIn("\n\n", message)  # Blank line between errors
 
 
 class TestUserValidation(unittest.TestCase):
