@@ -1,7 +1,12 @@
 name: Issues manager
-on: workflow_dispatch
+on:
+  issues:
+    types: [opened, edited]
+
 jobs:
   Validate:
+    # Run only when the issue has the 'deposit' label
+    if: contains(github.event.issue.labels.*.name, 'deposit')
     runs-on: ubuntu-22.04
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}

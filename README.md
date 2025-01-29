@@ -10,7 +10,24 @@ In this repository, trusted agents can deposit citations and bibliographic metad
 
 ## How to make a deposit
 
-To make a deposit, open an issue to this repository following the format that will be described below.
+1. Create a new issue in this repository
+2. Label the issue as "deposit" (this is required for the automated processing)
+3. Format your issue title as: `deposit {domain name of journal} {identifier}`
+   - For example: `deposit localhost:330 doi:10.1007/978-3-030-00668-6_8`
+   - Supported identifiers: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, and openalex
+4. In the issue body, include:
+   - Your metadata CSV
+   - The separator `===###===@@@===`
+   - Your citations CSV
+
+The automated system will:
+1. Check if you are in the safe list
+2. Validate your data format
+3. If invalid, comment with validation errors and close the issue
+4. If valid:
+   - Label the issue as "to be processed"
+   - Process and ingest your deposit during the next monthly update
+   - Close the issue and label it as "done" after processing
 
 An example can be found at https://github.com/opencitations/crowdsourcing/issues/1
 
@@ -63,7 +80,7 @@ When you submit an issue, the data is automatically validated using the [oc_vali
 
 ## Next steps
 
-OpenCitations will ingest valid deposits every Saturday at 00:01. The issues will be labeled as follows:
+OpenCitations will ingest valid deposits once a month. The issues will be labeled as follows:
 
 - **to be processed**: The issue is valid and will be processed (user is authorized and data format is correct)
 - **rejected**: The user is not in the safe list of trusted agents. Please contact OpenCitations at <contact@opencitations.net> to be added to the safe list
@@ -74,4 +91,4 @@ Note: Only users in the safe list can make deposits. If you're not in the safe l
 
 ## History and provenance
 
-Once a week, valid deposits will be uploaded to Zenodo and ingested by CROCI and OpenCitations Meta. The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
+Once a month, valid deposits will be uploaded to Zenodo and ingested by CROCI and OpenCitations Meta. The provenance of citation data and metadata will then reference the DOI of the repository on Zenodo, so that a lasting record of the agents responsible for each deposit is preserved.
