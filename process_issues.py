@@ -421,14 +421,14 @@ def _create_deposition_resource(
         "metadata": {
             "upload_type": "dataset",
             "publication_date": date,
-            "title": f"OpenCitations crowdsourcing: deposits of the week before {date}",
+            "title": f"OpenCitations crowdsourcing: deposits of {date[:7]}",
             "creators": [
                 {
                     "name": "crocibot",
                     "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
                 }
             ],
-            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every week. This upload contains the data of deposit issues published in the week before {date}.",
+            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every month. This upload contains the data of deposit issues published in {date[:7]}.",
             "access_right": "open",
             "license": "CC0-1.0",
             "prereserve_doi": True,
