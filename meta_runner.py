@@ -15,63 +15,370 @@
 # SOFTWARE.
 
 
-from sys import platform
-from typing import List
 import csv
 import io
-import json
 import os
-import shutil
 import subprocess
+import time
+from typing import List
+
+import requests
+from oc_meta.run.meta_process import MetaProcess, run_meta_process
+import yaml
+from SPARQLWrapper import SPARQLWrapper, JSON
 
 
-def dump_csv(data_to_store:List[dict], output_path:str):
+def dump_csv(data_to_store: List[dict], output_path: str):
     keys = data_to_store[0].keys()
     with open(output_path, "w", newline="") as output_file:
         dict_writer = csv.DictWriter(output_file, keys)
         dict_writer.writeheader()
         dict_writer.writerows(data_to_store)
 
-def store_meta_input(issues:List[dict]) -> None:
-    data_to_store = list()
-    counter = 0
-    if not os.path.exists("meta_input"):
-        os.mkdir("meta_input")
+
+def check_triplestore_connection(endpoint_url: str) -> bool:
+    """Check if the triplestore is responsive with a simple SPARQL query.
+
+    Args:
+        endpoint_url: The URL of the SPARQL endpoint
+
+    Returns:
+        bool: True if the triplestore is responsive, False otherwise
+    """
+    try:
+        sparql = SPARQLWrapper(endpoint_url)
+        sparql.setQuery("SELECT ?s WHERE { ?s ?p ?o } LIMIT 1")
+        sparql.setReturnFormat(JSON)
+        sparql.query()
+        return True
+    except Exception as e:
+        print(f"Error connecting to triplestore at {endpoint_url}: {str(e)}")
+        return False
+
+
+def get_ingestion_dirs() -> tuple[str, str, str]:
+    """Create and return paths for ingestion directories.
+
+    Creates a directory structure like:
+    crowdsourcing_ingestion_data/
+    └── YYYY_MM/
+        ├── metadata/
+        └── citations/
+
+    Returns:
+        tuple containing:
+        - base_dir: Path to the main ingestion directory for this month
+        - metadata_dir: Path to metadata directory
+        - citations_dir: Path to citations directory
+    """
+    current_date = time.strftime("%Y_%m")
+    base_dir = os.path.join("crowdsourcing_ingestion_data", current_date)
+    metadata_dir = os.path.join(base_dir, "metadata")
+    citations_dir = os.path.join(base_dir, "citations")
+
+    # Create directory structure
+    os.makedirs(metadata_dir, exist_ok=True)
+    os.makedirs(citations_dir, exist_ok=True)
+
+    return base_dir, metadata_dir, citations_dir
+
+
+def store_meta_input(issues: List[dict]) -> None:
+    """Store metadata and citations from issues into CSV files.
+
+    This function:
+    1. Creates directory structure for current month's ingestion
+    2. Extracts metadata and citations from each issue's body
+    3. Stores data in CSV files, with a maximum of 1000 records per file
+
+    Args:
+        issues: List of issue dictionaries containing body and number
+
+    Raises:
+        ValueError: If an issue's body doesn't contain the expected separator
+        IOError: If there are issues creating directories or writing files
+    """
+    _, metadata_dir, citations_dir = get_ingestion_dirs()
+    metadata_to_store = []
+    citations_to_store = []
+    metadata_counter = 0
+    citations_counter = 0
+
     for issue in issues:
-        issue_body = issue["body"]
-        split_data = issue_body.split("===###===@@@===")
-        metadata = list(csv.DictReader(io.StringIO(split_data[0].strip())))
-        if len(data_to_store) < 1000:
-            data_to_store.extend(metadata)
-        elif data_to_store:
-            dump_csv(data_to_store, f"meta_input/{str(counter)}.csv")
-            data_to_store = list()
-    if data_to_store:
-        dump_csv(data_to_store, f"meta_input/{str(counter)}.csv")
+        try:
+            issue_body = issue["body"]
+            if "===###===@@@===" not in issue_body:
+                print(
+                    f"Warning: Issue #{issue['number']} does not contain the expected separator"
+                )
+                continue
 
-def update_labels(multiprocess_output:subprocess.CompletedProcess, meta_output:subprocess.CompletedProcess, issues:List[dict]) -> None:
-    if multiprocess_output.returncode == 0 and meta_output.returncode == 0:
+            # Split metadata and citations sections
+            metadata_section, citations_section = [
+                section.strip() for section in issue_body.split("===###===@@@===")
+            ]
+
+            if not metadata_section:
+                print(f"Warning: Issue #{issue['number']} has empty metadata section")
+                continue
+
+            if not citations_section:
+                print(f"Warning: Issue #{issue['number']} has empty citations section")
+                continue
+
+            # Process metadata
+            metadata = list(csv.DictReader(io.StringIO(metadata_section)))
+            if not metadata:
+                print(
+                    f"Warning: Issue #{issue['number']} has no valid metadata records"
+                )
+                continue
+
+            # Process citations
+            citations = list(csv.DictReader(io.StringIO(citations_section)))
+            if not citations:
+                print(
+                    f"Warning: Issue #{issue['number']} has no valid citation records"
+                )
+                continue
+
+            # Only extend the lists if both metadata and citations are valid
+            metadata_to_store.extend(metadata)
+            citations_to_store.extend(citations)
+
+            # Write metadata to file when we reach 1000 records
+            while len(metadata_to_store) >= 1000:
+                dump_csv(
+                    metadata_to_store[:1000],
+                    os.path.join(metadata_dir, f"{metadata_counter}.csv"),
+                )
+                metadata_to_store = metadata_to_store[1000:]
+                metadata_counter += 1
+
+            # Write citations to file when we reach 1000 records
+            while len(citations_to_store) >= 1000:
+                dump_csv(
+                    citations_to_store[:1000],
+                    os.path.join(citations_dir, f"{citations_counter}.csv"),
+                )
+                citations_to_store = citations_to_store[1000:]
+                citations_counter += 1
+
+        except (KeyError, csv.Error) as e:
+            print(f"Error processing issue #{issue.get('number', 'unknown')}: {str(e)}")
+            continue
+
+    # Write any remaining records
+    if metadata_to_store:
+        dump_csv(
+            metadata_to_store, os.path.join(metadata_dir, f"{metadata_counter}.csv")
+        )
+    if citations_to_store:
+        dump_csv(
+            citations_to_store,
+            os.path.join(citations_dir, f"{citations_counter}.csv"),
+        )
+
+
+def get_closed_issues() -> List[dict]:
+    """Fetch closed issues with 'to be processed' label using GitHub REST API."""
+    print("Attempting to fetch closed issues...")
+
+    MAX_RETRIES = 3
+    RETRY_DELAY = 5
+
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+    }
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            print(f"Attempt {attempt + 1} of {MAX_RETRIES}")
+            response = requests.get(
+                f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues",
+                params={
+                    "state": "closed",
+                    "labels": "to be processed",
+                },
+                headers=headers,
+                timeout=30,
+            )
+
+            print(f"Response status code: {response.status_code}")
+
+            if response.status_code == 200:
+                issues = response.json()
+                print(f"Found {len(issues)} issues")
+                return [
+                    {
+                        "body": issue["body"],
+                        "number": str(issue["number"]),
+                    }
+                    for issue in issues
+                ]
+
+            elif response.status_code == 404:
+                print("Repository or endpoint not found (404)")
+                return []
+
+            elif (
+                response.status_code == 403
+                and "X-RateLimit-Remaining" in response.headers
+            ):
+                print(
+                    f"Rate limit info: {response.headers.get('X-RateLimit-Remaining')} requests remaining"
+                )
+                if int(response.headers["X-RateLimit-Remaining"]) == 0:
+                    reset_time = int(response.headers["X-RateLimit-Reset"])
+                    current_time = time.time()
+                    if reset_time > current_time:
+                        sleep_time = reset_time - current_time
+                        print(f"Rate limit exceeded. Waiting {sleep_time} seconds")
+                        time.sleep(sleep_time)
+                        continue
+                    continue
+            else:
+                print(f"Unexpected status code: {response.status_code}")
+                print(f"Response body: {response.text}")
+
+        except (requests.RequestException, KeyError) as e:
+            print(f"Error during request: {str(e)}")
+            if attempt < MAX_RETRIES - 1:
+                print(f"Waiting {RETRY_DELAY} seconds before retry")
+                time.sleep(RETRY_DELAY)
+                continue
+            raise RuntimeError(
+                f"Failed to fetch issues after {MAX_RETRIES} attempts"
+            ) from e
+
+    return []
+
+
+def process_single_issue(issue: dict, base_settings: dict) -> bool:
+    """Process a single issue, updating meta configuration with issue URI as source.
+
+    Args:
+        issue: Dictionary containing issue data
+        base_settings: Base meta configuration settings
+
+    Returns:
+        bool: True if processing was successful, False otherwise
+    """
+    # Store metadata and citations for this issue
+    store_meta_input([issue])
+
+    # Get paths for current ingestion
+    base_dir, metadata_dir, citations_dir = get_ingestion_dirs()
+
+    # Create issue-specific settings with issue URI as source
+    issue_settings = base_settings.copy()
+    issue_number = str(issue["number"])
+    issue_settings.update(
+        {
+            "input_csv_dir": metadata_dir,
+            "source": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/issues/{issue_number}",
+        }
+    )
+
+    # Create temporary config file with issue-specific settings
+    temp_config_path = os.path.join(base_dir, f"meta_config_{issue_number}.yaml")
+    with open(temp_config_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(issue_settings, f)
+
+    # Run meta processing for this issue
+    try:
+        run_meta_process(
+            settings=issue_settings,
+            meta_config_path=temp_config_path,
+            resp_agents_only=False,
+        )
+        return True
+    except Exception as e:
+        print(f"Error processing issue #{issue_number}: {str(e)}")
+        return False
+    finally:
+        # Clean up temporary config
+        if os.path.exists(temp_config_path):
+            os.remove(temp_config_path)
+
+
+def update_issue_labels(issue_number: str, success: bool) -> None:
+    """Update issue labels based on processing result using GitHub REST API.
+
+    Args:
+        issue_number: The issue number to update
+        success: Whether the processing was successful
+    """
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+
+    base_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues/{issue_number}"
+
+    try:
+        # Remove 'to be processed' label
+        requests.delete(
+            f"{base_url}/labels/to%20be%20processed",
+            headers=headers,
+            timeout=30,
+        )
+
+        # Add appropriate label based on success
+        new_label = "done" if success else "oc meta error"
+        requests.post(
+            f"{base_url}/labels",
+            headers=headers,
+            json={"labels": [new_label]},
+            timeout=30,
+        )
+    except requests.RequestException as e:
+        print(f"Error updating labels for issue {issue_number}: {e}")
+        raise
+
+
+def process_meta_issues() -> None:
+    """Process closed issues with 'to be processed' label for meta data extraction.
+
+    This function:
+    1. Checks triplestore connection
+    2. Fetches closed issues with 'to be processed' label
+    3. Processes each issue individually:
+       - Updates meta configuration with issue URI as source
+       - Processes metadata and citations
+       - Runs meta processing pipeline
+    4. Updates issue labels based on processing results
+    """
+    try:
+        # Load base meta configuration
+        with open("meta_config.yaml", encoding="utf-8") as f:
+            base_settings = yaml.safe_load(f)
+
+        # Check triplestore connection first
+        if not check_triplestore_connection(base_settings["triplestore_url"]):
+            print("Triplestore is not responsive, aborting process")
+            return
+
+        issues = get_closed_issues()
+
+        if not issues:
+            print("No issues to process")
+            return
+
+        # Process each issue individually
         for issue in issues:
-            issue_number = str(issue['number'])
-            subprocess.run(["gh", "issue", "edit", issue_number, "--remove-label", "to be processed", "--add-label", "done", "--repo", "https://github.com/arcangelo7/issues"])
-    else:
-        for issue in issues:
-            issue_number = str(issue['number'])
-            subprocess.run(["gh", "issue", "edit", issue_number, "--add-label", "oc meta error", "--repo", "https://github.com/arcangelo7/issues"])                    
+            issue_number = str(issue["number"])
+            print(f"\nProcessing issue #{issue_number}")
+
+            success = process_single_issue(issue, base_settings)
+            update_issue_labels(issue_number, success)
+
+    except Exception as e:
+        print(f"Error in process_meta_issues: {str(e)}")
+        raise
 
 
-if __name__ == "__main__":
-    output = subprocess.run(
-        ["gh", "issue", "list", "--state", "closed", "--label", "to be processed", "--json", "body,number", "--repo", "https://github.com/arcangelo7/issues"], 
-        capture_output=True, text=True)
-    issues = json.loads(output.stdout)
-    if issues:
-        is_unix = platform in {"linux", "linux2", "darwin"}
-        call_python = "python3" if is_unix else "python"
-        store_meta_input(issues)
-        os.chdir("oc_meta/")
-        multiprocess_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.prepare_multiprocess", "-c", "../meta_config.yaml"], capture_output=True, text=True)
-        meta_output = subprocess.run(["poetry", "run", call_python, "-m", "oc_meta.run.meta_process", "-c", "../meta_config.yaml"], capture_output=True, text=True)
-        update_labels(multiprocess_output, meta_output, issues)
-        shutil.rmtree("../meta_input")
-        shutil.rmtree("../meta_input_old")
+if __name__ == "__main__":  # pragma: no cover
+    process_meta_issues()

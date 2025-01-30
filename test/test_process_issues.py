@@ -312,15 +312,26 @@ class TestUserValidation(unittest.TestCase):
 
     def test_get_user_id_real_user(self):
         """Test getting ID of a real GitHub user"""
-        with patch.dict("os.environ", {"GH_TOKEN": os.environ.get("GH_TOKEN")}):
-            user_id = get_user_id("arcangelo7")
-            print("user_id", user_id)
-            self.assertEqual(user_id, 42008604)
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            with patch("requests.get") as mock_get:
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {"id": 42008604}
+                mock_get.return_value = mock_response
+
+                user_id = get_user_id("arcangelo7")
+                self.assertEqual(user_id, 42008604)
 
     def test_get_user_id_nonexistent_user(self):
         """Test getting ID of a nonexistent GitHub user"""
-        user_id = get_user_id("this_user_definitely_does_not_exist_123456789")
-        self.assertIsNone(user_id)
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            with patch("requests.get") as mock_get:
+                mock_response = MagicMock()
+                mock_response.status_code = 404
+                mock_get.return_value = mock_response
+
+                user_id = get_user_id("this_user_definitely_does_not_exist_123456789")
+                self.assertIsNone(user_id)
 
     def test_is_in_safe_list_allowed_user(self):
         """Test with a real allowed GitHub user ID"""
@@ -387,12 +398,13 @@ class TestUserValidation(unittest.TestCase):
             MagicMock(status_code=200, json=lambda: {"id": 12345}),
         ]
 
-        user_id = get_user_id("test-user")
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            user_id = get_user_id("test-user")
 
-        self.assertEqual(user_id, 12345)
-        self.assertEqual(mock_get.call_count, 3)
-        self.assertEqual(mock_sleep.call_count, 2)
-        mock_sleep.assert_called_with(5)  # Verify sleep duration
+            self.assertEqual(user_id, 12345)
+            self.assertEqual(mock_get.call_count, 3)
+            self.assertEqual(mock_sleep.call_count, 2)
+            mock_sleep.assert_called_with(5)  # Verify sleep duration
 
     @patch("requests.get")
     @patch("time.sleep")
@@ -405,13 +417,14 @@ class TestUserValidation(unittest.TestCase):
             requests.ConnectionError,
         ]
 
-        user_id = get_user_id("test-user")
+        with patch.dict("os.environ", {"GH_TOKEN": "fake-token"}):
+            user_id = get_user_id("test-user")
 
-        self.assertIsNone(user_id)
-        self.assertEqual(mock_get.call_count, 3)
-        self.assertEqual(
-            mock_sleep.call_count, 3
-        )  # Updated to expect 3 sleeps - one for each ConnectionError
+            self.assertIsNone(user_id)
+            self.assertEqual(mock_get.call_count, 3)
+            self.assertEqual(
+                mock_sleep.call_count, 3
+            )  # Updated to expect 3 sleeps - one for each ConnectionError
 
     def test_is_in_safe_list_file_not_found(self):
         """Test behavior when safe_list.txt doesn't exist"""

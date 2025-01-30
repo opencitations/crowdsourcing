@@ -7,11 +7,12 @@ license = "ISC License"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "<3.14,>=3.9"
+python = "<3.14,>=3.10"
 oc-ds-converter = "^1.0.4"
 pandas = "^2.2.3"
 requests = "^2.32.3"
 oc-validator = "^0.3.3"
+oc-meta = "^2.0.3"
 
 
 [tool.poetry.group.dev.dependencies]
