@@ -1,59 +1,59 @@
-# name: Release
+name: Release
 
-# on:
-#   push:
-#     branches: [main]
+on:
+  push:
+    branches: [main]
 
-# jobs:
-#   release:
-#     name: Release
-#     runs-on: ubuntu-22.04
-#     # Skip release if commit message contains chore(release) to avoid loops
-#     if: ${{ !contains(github.event.head_commit.message, 'chore(release)') }}
-#     permissions:
-#       contents: write
-#       issues: write
-#       pull-requests: write
-#       id-token: write
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-22.04
+    # Skip release if commit message contains chore(release) to avoid loops
+    if: ${{ !contains(github.event.head_commit.message, 'chore(release)') }}
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+      id-token: write
 
-#     steps:
-#       - name: Checkout repository
-#         uses: actions/checkout@v4
-#         with:
-#           fetch-depth: 0
-#           token: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-#       - name: Set up Python
-#         uses: actions/setup-python@v5
-#         with:
-#           python-version: '3.10'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-#       - name: Install Poetry
-#         uses: snok/install-poetry@v1
-#         with:
-#           version: 1.4.1
-#           virtualenvs-create: true
-#           virtualenvs-in-project: true
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.4.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
 
-#       - name: Install dependencies
-#         run: poetry install --no-interaction --only main
+      - name: Install dependencies
+        run: poetry install --no-interaction --only main
 
-#       - name: Set up Node.js
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: 'lts/*'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
 
-#       - name: Install semantic-release and plugins
-#         run: |
-#           npm install -g semantic-release
-#           npm install -g @semantic-release/git
-#           npm install -g @semantic-release/changelog
-#           npm install -g @semantic-release/exec
-#           npm install -g conventional-changelog-conventionalcommits
+      - name: Install semantic-release and plugins
+        run: |
+          npm install -g semantic-release
+          npm install -g @semantic-release/git
+          npm install -g @semantic-release/changelog
+          npm install -g @semantic-release/exec
+          npm install -g conventional-changelog-conventionalcommits
 
-#       - name: Create Release
-#         env:
-#           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#         run: |
-#           npx semantic-release 
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx semantic-release 
