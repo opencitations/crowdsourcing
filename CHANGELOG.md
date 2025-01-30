@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/opencitations/crowdsourcing/compare/v1.0.0...v1.0.1) (2025-01-30)
+
+### Bug Fixes
+
+* **gitignore:** allow tracking of validation reports ([2334657](https://github.com/opencitations/crowdsourcing/commit/2334657de1d15434ab72d9f5e2e445922bc716de))
+* **gitignore:** remove docs directory from ignored paths ([e9399b8](https://github.com/opencitations/crowdsourcing/commit/e9399b8bac9459b1b45da2ac195a329feeff43c5))
+
 ## 1.0.0 (2025-01-29)
 
 ### Features
