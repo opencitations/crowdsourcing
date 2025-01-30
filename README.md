@@ -3,7 +3,7 @@
 [<img src="https://img.shields.io/badge/powered%20by-OpenCitations-%239931FC?labelColor=2D22DE" />](http://opencitations.net)
 [![Tests](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml)
 ![Coverage](https://byob.yarr.is/arcangelo7/badges/opencitations-crowdsourcing-coverage)
-![Python](https://img.shields.io/badge/python-3.9%20|%203.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
 ![Poetry](https://img.shields.io/badge/poetry-1.4.1-beige?logo=poetry&logoColor=white)
 
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through the OpenCitations CROCI and OpenCitations Meta indexes.
