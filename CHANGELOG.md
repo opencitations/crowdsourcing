@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/opencitations/crowdsourcing/compare/v1.1.2...v1.2.0) (2025-01-31)
+
+### Features
+
+* improve Zenodo deposit titles with meaningful metadata ([a372dd8](https://github.com/opencitations/crowdsourcing/commit/a372dd8a2dd3d2b77359bb6d76b01dfccfc4a057))
+
 ## [1.1.2](https://github.com/opencitations/crowdsourcing/compare/v1.1.1...v1.1.2) (2025-01-31)
 
 ### Bug Fixes
