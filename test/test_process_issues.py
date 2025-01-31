@@ -191,7 +191,10 @@ WRONG_SEPARATOR
         self.assertEqual(len(result["data"]["metadata"]), 1)
         self.assertEqual(len(result["data"]["citations"]), 1)
         self.assertEqual(result["provenance"]["generatedAtTime"], created_at)
-        self.assertEqual(result["provenance"]["wasAttributedTo"], user_id)
+        self.assertEqual(
+            result["provenance"]["wasAttributedTo"],
+            f"https://api.github.com/user/{user_id}",
+        )
         self.assertEqual(result["provenance"]["hadPrimarySource"], had_primary_source)
 
     def test_get_data_to_store_invalid_csv(self):
@@ -1375,7 +1378,10 @@ class TestProcessOpenIssues(unittest.TestCase):
         args, kwargs = mock_deposit.call_args
         deposited_data = args[0][0]
         self.assertEqual(deposited_data["data"]["title"], self.sample_issue["title"])
-        self.assertEqual(deposited_data["provenance"]["wasAttributedTo"], 12345)
+        self.assertEqual(
+            deposited_data["provenance"]["wasAttributedTo"],
+            f"https://api.github.com/user/{12345}",
+        )
 
     @patch("crowdsourcing.process_issues.get_open_issues")
     @patch("crowdsourcing.process_issues.get_user_id")

@@ -1,15 +1,18 @@
 name: Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Tests"]
+    types:
+      - completed
     branches: [main]
 
 jobs:
   release:
     name: Release
+    # Run only if the triggering workflow was successful
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-22.04
-    # Skip release if commit message contains chore(release) to avoid loops
-    if: ${{ !contains(github.event.head_commit.message, 'chore(release)') }}
     permissions:
       contents: write
       issues: write
