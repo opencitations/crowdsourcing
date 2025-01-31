@@ -14,24 +14,23 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 # SOFTWARE.
 
+import csv
 import os
 import shutil
 import time
 import unittest
-from unittest.mock import patch, Mock, MagicMock
-import csv
-import json
-from meta_runner import (
-    get_closed_issues,
-    store_meta_input,
-    get_ingestion_dirs,
-    check_triplestore_connection,
-    process_single_issue,
-    update_issue_labels,
-    process_meta_issues,
-)
+from unittest.mock import Mock, patch
+
 import requests
-import yaml
+from crowdsourcing.meta_runner import (
+    check_triplestore_connection,
+    get_closed_issues,
+    get_ingestion_dirs,
+    process_meta_issues,
+    process_single_issue,
+    store_meta_input,
+    update_issue_labels,
+)
 
 
 class TestMetaRunner(unittest.TestCase):
@@ -378,7 +377,7 @@ class TestMetaRunner(unittest.TestCase):
         self.assertFalse(result)
         mock_query.assert_called_once()
 
-    @patch("meta_runner.run_meta_process")
+    @patch("crowdsourcing.meta_runner.run_meta_process")
     def test_process_single_issue_success(self, mock_run_meta):
         # Prepare test data
         issue = {
@@ -410,7 +409,7 @@ class TestMetaRunner(unittest.TestCase):
         self.assertEqual(len(os.listdir(metadata_dir)), 1)
         self.assertEqual(len(os.listdir(citations_dir)), 1)
 
-    @patch("meta_runner.run_meta_process")
+    @patch("crowdsourcing.meta_runner.run_meta_process")
     def test_process_single_issue_meta_process_failure(self, mock_run_meta):
         # Prepare test data
         issue = {
@@ -460,7 +459,7 @@ class TestMetaRunner(unittest.TestCase):
         self.assertEqual(len(os.listdir(metadata_dir)), 0)
         self.assertEqual(len(os.listdir(citations_dir)), 0)
 
-    @patch("meta_runner.run_meta_process")
+    @patch("crowdsourcing.meta_runner.run_meta_process")
     def test_process_single_issue_settings_update(self, mock_run_meta):
         # Prepare test data
         issue = {
@@ -488,7 +487,7 @@ class TestMetaRunner(unittest.TestCase):
         self.assertEqual(called_settings["some_other_setting"], "value")
         self.assertTrue(called_settings["input_csv_dir"].endswith("metadata"))
 
-    @patch("meta_runner.run_meta_process")
+    @patch("crowdsourcing.meta_runner.run_meta_process")
     def test_process_single_issue_general_exception(self, mock_run_meta):
         """Test handling of general exceptions in process_single_issue."""
         # Prepare test data
@@ -656,10 +655,10 @@ class TestProcessMetaIssues(unittest.TestCase):
         self.env_patcher.stop()
         self.yaml_patcher.stop()
 
-    @patch("meta_runner.check_triplestore_connection")
-    @patch("meta_runner.get_closed_issues")
-    @patch("meta_runner.process_single_issue")
-    @patch("meta_runner.update_issue_labels")
+    @patch("crowdsourcing.meta_runner.check_triplestore_connection")
+    @patch("crowdsourcing.meta_runner.get_closed_issues")
+    @patch("crowdsourcing.meta_runner.process_single_issue")
+    @patch("crowdsourcing.meta_runner.update_issue_labels")
     def test_successful_processing(
         self, mock_update_labels, mock_process_issue, mock_get_issues, mock_check_conn
     ):
@@ -689,7 +688,7 @@ class TestProcessMetaIssues(unittest.TestCase):
         )
         mock_update_labels.assert_any_call("2", True)
 
-    @patch("meta_runner.check_triplestore_connection")
+    @patch("crowdsourcing.meta_runner.check_triplestore_connection")
     def test_triplestore_not_responsive(self, mock_check_conn):
         """Test behavior when triplestore is not responsive."""
         mock_check_conn.return_value = False
@@ -700,8 +699,8 @@ class TestProcessMetaIssues(unittest.TestCase):
         # Verify early return
         mock_check_conn.assert_called_once_with(self.config_content["triplestore_url"])
 
-    @patch("meta_runner.check_triplestore_connection")
-    @patch("meta_runner.get_closed_issues")
+    @patch("crowdsourcing.meta_runner.check_triplestore_connection")
+    @patch("crowdsourcing.meta_runner.get_closed_issues")
     def test_no_issues_to_process(self, mock_get_issues, mock_check_conn):
         """Test behavior when no issues are found."""
         mock_check_conn.return_value = True
@@ -713,10 +712,10 @@ class TestProcessMetaIssues(unittest.TestCase):
         # Verify early return after finding no issues
         mock_get_issues.assert_called_once()
 
-    @patch("meta_runner.check_triplestore_connection")
-    @patch("meta_runner.get_closed_issues")
-    @patch("meta_runner.process_single_issue")
-    @patch("meta_runner.update_issue_labels")
+    @patch("crowdsourcing.meta_runner.check_triplestore_connection")
+    @patch("crowdsourcing.meta_runner.get_closed_issues")
+    @patch("crowdsourcing.meta_runner.process_single_issue")
+    @patch("crowdsourcing.meta_runner.update_issue_labels")
     def test_mixed_processing_results(
         self, mock_update_labels, mock_process_issue, mock_get_issues, mock_check_conn
     ):
@@ -741,10 +740,10 @@ class TestProcessMetaIssues(unittest.TestCase):
         mock_update_labels.assert_any_call("1", True)
         mock_update_labels.assert_any_call("2", False)
 
-    @patch("meta_runner.check_triplestore_connection")
-    @patch("meta_runner.get_closed_issues")
-    @patch("meta_runner.process_single_issue")
-    @patch("meta_runner.update_issue_labels")
+    @patch("crowdsourcing.meta_runner.check_triplestore_connection")
+    @patch("crowdsourcing.meta_runner.get_closed_issues")
+    @patch("crowdsourcing.meta_runner.process_single_issue")
+    @patch("crowdsourcing.meta_runner.update_issue_labels")
     def test_error_handling(
         self, mock_update_labels, mock_process_issue, mock_get_issues, mock_check_conn
     ):

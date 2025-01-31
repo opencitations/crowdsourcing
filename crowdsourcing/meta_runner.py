@@ -17,15 +17,18 @@
 
 import csv
 import io
+import logging
 import os
-import subprocess
 import time
 from typing import List
 
 import requests
-from oc_meta.run.meta_process import MetaProcess, run_meta_process
 import yaml
-from SPARQLWrapper import SPARQLWrapper, JSON
+from oc_meta.run.meta_process import run_meta_process
+from SPARQLWrapper import JSON, SPARQLWrapper
+
+
+logger = logging.getLogger(__name__)
 
 
 def dump_csv(data_to_store: List[dict], output_path: str):
@@ -52,7 +55,7 @@ def check_triplestore_connection(endpoint_url: str) -> bool:
         sparql.query()
         return True
     except Exception as e:
-        print(f"Error connecting to triplestore at {endpoint_url}: {str(e)}")
+        logger.error(f"Error connecting to triplestore at {endpoint_url}: {str(e)}")
         return False
 
 
@@ -108,7 +111,7 @@ def store_meta_input(issues: List[dict]) -> None:
         try:
             issue_body = issue["body"]
             if "===###===@@@===" not in issue_body:
-                print(
+                logger.warning(
                     f"Warning: Issue #{issue['number']} does not contain the expected separator"
                 )
                 continue
@@ -119,17 +122,21 @@ def store_meta_input(issues: List[dict]) -> None:
             ]
 
             if not metadata_section:
-                print(f"Warning: Issue #{issue['number']} has empty metadata section")
+                logger.warning(
+                    f"Warning: Issue #{issue['number']} has empty metadata section"
+                )
                 continue
 
             if not citations_section:
-                print(f"Warning: Issue #{issue['number']} has empty citations section")
+                logger.warning(
+                    f"Warning: Issue #{issue['number']} has empty citations section"
+                )
                 continue
 
             # Process metadata
             metadata = list(csv.DictReader(io.StringIO(metadata_section)))
             if not metadata:
-                print(
+                logger.warning(
                     f"Warning: Issue #{issue['number']} has no valid metadata records"
                 )
                 continue
@@ -137,7 +144,7 @@ def store_meta_input(issues: List[dict]) -> None:
             # Process citations
             citations = list(csv.DictReader(io.StringIO(citations_section)))
             if not citations:
-                print(
+                logger.warning(
                     f"Warning: Issue #{issue['number']} has no valid citation records"
                 )
                 continue
@@ -165,7 +172,9 @@ def store_meta_input(issues: List[dict]) -> None:
                 citations_counter += 1
 
         except (KeyError, csv.Error) as e:
-            print(f"Error processing issue #{issue.get('number', 'unknown')}: {str(e)}")
+            logger.error(
+                f"Error processing issue #{issue.get('number', 'unknown')}: {str(e)}"
+            )
             continue
 
     # Write any remaining records
@@ -182,8 +191,6 @@ def store_meta_input(issues: List[dict]) -> None:
 
 def get_closed_issues() -> List[dict]:
     """Fetch closed issues with 'to be processed' label using GitHub REST API."""
-    print("Attempting to fetch closed issues...")
-
     MAX_RETRIES = 3
     RETRY_DELAY = 5
 
@@ -194,7 +201,6 @@ def get_closed_issues() -> List[dict]:
 
     for attempt in range(MAX_RETRIES):
         try:
-            print(f"Attempt {attempt + 1} of {MAX_RETRIES}")
             response = requests.get(
                 f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues",
                 params={
@@ -205,11 +211,9 @@ def get_closed_issues() -> List[dict]:
                 timeout=30,
             )
 
-            print(f"Response status code: {response.status_code}")
-
             if response.status_code == 200:
                 issues = response.json()
-                print(f"Found {len(issues)} issues")
+                logger.info(f"Found {len(issues)} issues")
                 return [
                     {
                         "body": issue["body"],
@@ -219,14 +223,14 @@ def get_closed_issues() -> List[dict]:
                 ]
 
             elif response.status_code == 404:
-                print("Repository or endpoint not found (404)")
+                logger.error("Repository or endpoint not found (404)")
                 return []
 
             elif (
                 response.status_code == 403
                 and "X-RateLimit-Remaining" in response.headers
             ):
-                print(
+                logger.info(
                     f"Rate limit info: {response.headers.get('X-RateLimit-Remaining')} requests remaining"
                 )
                 if int(response.headers["X-RateLimit-Remaining"]) == 0:
@@ -234,18 +238,20 @@ def get_closed_issues() -> List[dict]:
                     current_time = time.time()
                     if reset_time > current_time:
                         sleep_time = reset_time - current_time
-                        print(f"Rate limit exceeded. Waiting {sleep_time} seconds")
+                        logger.info(
+                            f"Rate limit exceeded. Waiting {sleep_time} seconds"
+                        )
                         time.sleep(sleep_time)
                         continue
                     continue
             else:
-                print(f"Unexpected status code: {response.status_code}")
-                print(f"Response body: {response.text}")
+                logger.error(f"Unexpected status code: {response.status_code}")
+                logger.error(f"Response body: {response.text}")
 
         except (requests.RequestException, KeyError) as e:
-            print(f"Error during request: {str(e)}")
+            logger.error(f"Error during request: {str(e)}")
             if attempt < MAX_RETRIES - 1:
-                print(f"Waiting {RETRY_DELAY} seconds before retry")
+                logger.info(f"Waiting {RETRY_DELAY} seconds before retry")
                 time.sleep(RETRY_DELAY)
                 continue
             raise RuntimeError(
@@ -295,7 +301,7 @@ def process_single_issue(issue: dict, base_settings: dict) -> bool:
         )
         return True
     except Exception as e:
-        print(f"Error processing issue #{issue_number}: {str(e)}")
+        logger.error(f"Error processing issue #{issue_number}: {str(e)}")
         return False
     finally:
         # Clean up temporary config
@@ -310,6 +316,8 @@ def update_issue_labels(issue_number: str, success: bool) -> None:
         issue_number: The issue number to update
         success: Whether the processing was successful
     """
+    logger.info(f"Updating labels for issue #{issue_number} (success={success})")
+
     headers = {
         "Accept": "application/vnd.github+json",
         "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
@@ -317,25 +325,39 @@ def update_issue_labels(issue_number: str, success: bool) -> None:
     }
 
     base_url = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/issues/{issue_number}"
+    logger.info(f"Using API URL: {base_url}")
 
     try:
         # Remove 'to be processed' label
-        requests.delete(
+        logger.info("Attempting to remove 'to be processed' label")
+        response = requests.delete(
             f"{base_url}/labels/to%20be%20processed",
             headers=headers,
             timeout=30,
         )
+        logger.info(f"Delete label response status: {response.status_code}")
+        if response.status_code != 200:
+            logger.error(f"Error response from delete label: {response.text}")
 
         # Add appropriate label based on success
         new_label = "done" if success else "oc meta error"
-        requests.post(
+        logger.info(f"Attempting to add new label: {new_label}")
+        response = requests.post(
             f"{base_url}/labels",
             headers=headers,
             json={"labels": [new_label]},
             timeout=30,
         )
+        logger.info(f"Add label response status: {response.status_code}")
+        if response.status_code not in [200, 201]:  # Both are valid success codes
+            logger.error(f"Error adding label: {response.text}")
+        else:
+            logger.info(
+                f"Successfully added label '{new_label}' to issue #{issue_number}"
+            )
+
     except requests.RequestException as e:
-        print(f"Error updating labels for issue {issue_number}: {e}")
+        logger.error(f"Error updating labels for issue {issue_number}: {e}")
         raise
 
 
@@ -351,6 +373,7 @@ def process_meta_issues() -> None:
        - Runs meta processing pipeline
     4. Updates issue labels based on processing results
     """
+
     try:
         # Load base meta configuration
         with open("meta_config.yaml", encoding="utf-8") as f:
@@ -358,25 +381,25 @@ def process_meta_issues() -> None:
 
         # Check triplestore connection first
         if not check_triplestore_connection(base_settings["triplestore_url"]):
-            print("Triplestore is not responsive, aborting process")
+            logger.error("Triplestore is not responsive, aborting process")
             return
 
         issues = get_closed_issues()
 
         if not issues:
-            print("No issues to process")
+            logger.info("No issues to process")
             return
 
         # Process each issue individually
         for issue in issues:
             issue_number = str(issue["number"])
-            print(f"\nProcessing issue #{issue_number}")
+            logger.info(f"\nProcessing issue #{issue_number}")
 
             success = process_single_issue(issue, base_settings)
             update_issue_labels(issue_number, success)
 
     except Exception as e:
-        print(f"Error in process_meta_issues: {str(e)}")
+        logger.error(f"Error in process_meta_issues: {str(e)}", exc_info=True)
         raise
 
 

@@ -27,6 +27,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 import requests
+import yaml
 from oc_ds_converter.oc_idmanager.base import IdentifierManager
 from oc_ds_converter.oc_idmanager.doi import DOIManager
 from oc_ds_converter.oc_idmanager.isbn import ISBNManager
@@ -36,9 +37,11 @@ from oc_ds_converter.oc_idmanager.pmid import PMIDManager
 from oc_ds_converter.oc_idmanager.url import URLManager
 from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
-from oc_validator.main import ClosureValidator
 from oc_validator.interface.gui import make_gui, merge_html_files
-import yaml
+from oc_validator.main import ClosureValidator
+
+# Constants
+SAFE_LIST_PATH = "safe_list.yaml"
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
@@ -209,9 +212,7 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
                 shutil.copy("validation_output/cits_report.html", report_path)
 
             # Get repository from environment
-            repository = os.environ.get(
-                "GITHUB_REPOSITORY", "opencitations/crowdsourcing"
-            )
+            repository = os.environ["GITHUB_REPOSITORY"]
             report_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}/validation_reports/{report_filename}"
 
             # Create error message based on which parts have errors
@@ -273,7 +274,7 @@ def answer(
     print(f"Adding label '{label}' to issue #{issue_number}")
 
     # Get repository from environment
-    repository = os.environ.get("GITHUB_REPOSITORY", "opencitations/crowdsourcing")
+    repository = os.environ["GITHUB_REPOSITORY"]
 
     headers = {
         "Accept": "application/vnd.github+json",
@@ -554,7 +555,7 @@ def is_in_safe_list(user_id: int) -> bool:
         bool: True if user is in safe list, False otherwise
     """
     try:
-        with open("safe_list.yaml", "r") as f:
+        with open(SAFE_LIST_PATH, "r") as f:
             safe_list = yaml.safe_load(f)
             # Extract just the IDs for comparison
             allowed_ids = {str(user["id"]) for user in safe_list.get("users", [])}
@@ -562,7 +563,7 @@ def is_in_safe_list(user_id: int) -> bool:
     except FileNotFoundError:
         print("Warning: safe_list.yaml not found, creating empty file")
         # Create empty safe list file with proper structure
-        with open("safe_list.yaml", "w") as f:
+        with open(SAFE_LIST_PATH, "w") as f:
             yaml.dump({"users": []}, f)
         return False
     except yaml.YAMLError as e:
@@ -575,7 +576,7 @@ def get_open_issues() -> List[dict]:
     print("Attempting to fetch open issues...")
 
     # Get repository info from GitHub Actions environment
-    repository = os.environ.get("GITHUB_REPOSITORY", "opencitations/crowdsourcing")
+    repository = os.environ["GITHUB_REPOSITORY"]
     print(f"Checking repository: {repository}")
 
     MAX_RETRIES = 3

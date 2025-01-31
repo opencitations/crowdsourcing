@@ -5,10 +5,10 @@
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
-      "prepareCmd": "poetry version ${nextRelease.version}"
+      "prepareCmd": "poetry version ${nextRelease.version} && sed -i 's/__version__ = \".*\"/__version__ = \"${nextRelease.version}\"/' crowdsourcing/__init__.py"
     }],
     ["@semantic-release/git", {
-      "assets": ["CHANGELOG.md", "pyproject.toml"],
+      "assets": ["CHANGELOG.md", "pyproject.toml", "crowdsourcing/__init__.py"],
       "message": "chore(release): ${nextRelease.version}\n\n${nextRelease.notes}"
     }],
     "@semantic-release/github"

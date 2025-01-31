@@ -3,3 +3,10 @@ __pycache__/
 id_value.json
 .env
 .coverage
+meta_output_test/
+virtuoso-opensource/
+logs/
+ts_upload_cache.json
+crowdsourcing_ingestion_data/
+gently_run.sh
+gently_stop.sh

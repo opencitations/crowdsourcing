@@ -1,13 +1,13 @@
 # Mandatory settings
 
 # Endpoint URL to load the output RDF
-triplestore_url: http://127.0.0.1:8890/sparql
+triplestore_url: http://127.0.0.1:8805/sparql
 # A list of triplestore URLs containing provenance metadata
 provenance_endpoints: []
 # Directory where raw CSV files are stored
-input_csv_dir: crowdsourcing_ingestion_data/YYYY_MM/metadata
+input_csv_dir: /mnt/arcangelo/repositories/crowdsourcing/crowdsourcing_ingestion_data/YYYY_MM/metadata
 # The path to the base directory to save all output files
-base_output_dir: &base_output_dir /mnt/arcangelo/meta_output_current
+base_output_dir: &base_output_dir /mnt/arcangelo/repositories/crowdsourcing/meta_output_test
 # A URI string representing the provenance agent which is considered responsible for the RDF graph manipulation
 resp_agent: https://orcid.org/0000-0002-8420-0696
 
@@ -58,4 +58,4 @@ silencer: ['author', 'editor', 'publisher']
 # Redis settings
 redis_host: localhost
 redis_port: 6379
-redis_db: 6
+redis_db: 5

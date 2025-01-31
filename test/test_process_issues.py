@@ -24,7 +24,7 @@ from unittest.mock import MagicMock, patch
 import requests
 import yaml
 from dotenv import load_dotenv
-from process_issues import (
+from crowdsourcing.process_issues import (
     _create_deposition_resource,
     _get_zenodo_token,
     _upload_data,
@@ -103,12 +103,22 @@ class TestValidation(unittest.TestCase):
             if os.path.exists(path):
                 shutil.rmtree(path)
 
+        # Setup environment variables
+        self.env_patcher = patch.dict(
+            "os.environ",
+            {"GH_TOKEN": "fake-token", "GITHUB_REPOSITORY": "test-org/test-repo"},
+        )
+        self.env_patcher.start()
+
     def tearDown(self):
         """Clean up after each test"""
         # Clean up test directories - ignore errors if already deleted
         for path in ["validation_output", "docs/validation_reports"]:
             if os.path.exists(path):
                 shutil.rmtree(path)
+
+        # Stop environment patcher
+        self.env_patcher.stop()
 
     def test_valid_issue(self):
         """Test that a valid issue with correct title and CSV data is accepted"""
@@ -512,15 +522,31 @@ INVALID_SEPARATOR
 class TestUserValidation(unittest.TestCase):
     def setUp(self):
         """Set up test environment before each test"""
-        # Create a test safe list file with actual GitHub user IDs
+        # Create a temporary test safe list file
+        self.test_safe_list_path = "test_safe_list.yaml"
         test_safe_list = {
             "users": [
                 {"id": 3869247, "name": "Silvio Peroni"},
                 {"id": 42008604, "name": "Arcangelo Massari"},
             ]
         }
-        with open("safe_list.yaml", "w") as f:
+        with open(self.test_safe_list_path, "w") as f:
             yaml.dump(test_safe_list, f)
+
+        # Create patcher to use test file instead of real one
+        self.safe_list_patcher = patch(
+            "crowdsourcing.process_issues.SAFE_LIST_PATH", self.test_safe_list_path
+        )
+        self.safe_list_patcher.start()
+
+    def tearDown(self):
+        """Clean up after each test"""
+        # Remove temporary file
+        if os.path.exists(self.test_safe_list_path):
+            os.remove(self.test_safe_list_path)
+
+        # Stop patcher
+        self.safe_list_patcher.stop()
 
     def test_get_user_id_real_user(self):
         """Test getting ID of a real GitHub user"""
@@ -555,9 +581,9 @@ class TestUserValidation(unittest.TestCase):
 
     def test_is_in_safe_list_file_not_found(self):
         """Test behavior when safe_list.yaml doesn't exist"""
-        # Ensure the file doesn't exist
-        if os.path.exists("safe_list.yaml"):
-            os.remove("safe_list.yaml")
+        # Remove the test file to simulate missing file
+        if os.path.exists(self.test_safe_list_path):
+            os.remove(self.test_safe_list_path)
 
         # Test with any user ID - should return False when file is missing
         result = is_in_safe_list(42008604)
@@ -566,14 +592,14 @@ class TestUserValidation(unittest.TestCase):
         self.assertFalse(result)
 
         # Verify empty file was created with proper structure
-        self.assertTrue(os.path.exists("safe_list.yaml"))
-        with open("safe_list.yaml", "r") as f:
+        self.assertTrue(os.path.exists(self.test_safe_list_path))
+        with open(self.test_safe_list_path, "r") as f:
             content = yaml.safe_load(f)
             self.assertEqual(content, {"users": []})
 
     def test_is_in_safe_list_invalid_yaml(self):
         """Test behavior with invalid YAML file"""
-        with open("safe_list.yaml", "w") as f:
+        with open(self.test_safe_list_path, "w") as f:
             f.write("invalid: yaml: content: [")
         self.assertFalse(is_in_safe_list(42008604))
 
@@ -703,9 +729,20 @@ class TestGitHubAPI(unittest.TestCase):
                 "number": 1,
                 "user": {"login": "test-user"},
                 "created_at": "2024-01-01T00:00:00Z",
-                "html_url": "https://github.com/test/test/issues/1",
+                "html_url": "https://github.com/test-org/test-repo/issues/1",
             }
         ]
+
+        # Setup environment variables
+        self.env_patcher = patch.dict(
+            "os.environ",
+            {"GH_TOKEN": "fake-token", "GITHUB_REPOSITORY": "test-org/test-repo"},
+        )
+        self.env_patcher.start()
+
+    def tearDown(self):
+        """Clean up after each test"""
+        self.env_patcher.stop()
 
     @patch("requests.get")
     def test_get_open_issues_success(self, mock_get):
@@ -872,9 +909,7 @@ class TestAnswerFunction(unittest.TestCase):
 
     def setUp(self):
         """Set up test environment before each test"""
-        self.base_url = (
-            "https://api.github.com/repos/opencitations/crowdsourcing/issues"
-        )
+        self.base_url = "https://api.github.com/repos/test-org/test-repo/issues"
         self.headers = {
             "Accept": "application/vnd.github+json",
             "Authorization": "Bearer fake-token",
@@ -882,8 +917,11 @@ class TestAnswerFunction(unittest.TestCase):
         }
         self.issue_number = "123"
 
-        # Setup environment variable
-        self.env_patcher = patch.dict("os.environ", {"GH_TOKEN": "fake-token"})
+        # Setup environment variables
+        self.env_patcher = patch.dict(
+            "os.environ",
+            {"GH_TOKEN": "fake-token", "GITHUB_REPOSITORY": "test-org/test-repo"},
+        )
         self.env_patcher.start()
 
     def tearDown(self):
@@ -1100,8 +1138,8 @@ class TestZenodoDeposit(unittest.TestCase):
         self.assertEqual(kwargs["params"], {"access_token": "fake-sandbox-token"})
         self.assertEqual(kwargs["timeout"], 30)
 
-    @patch("process_issues._create_deposition_resource")
-    @patch("process_issues._upload_data")
+    @patch("crowdsourcing.process_issues._create_deposition_resource")
+    @patch("crowdsourcing.process_issues._upload_data")
     @patch("requests.post")
     def test_deposit_on_zenodo(self, mock_post, mock_upload, mock_create):
         """Test full Zenodo deposit process"""
@@ -1158,7 +1196,7 @@ class TestZenodoDeposit(unittest.TestCase):
         with self.assertRaises(requests.RequestException):
             _upload_data("2024-01-01", "https://zenodo.org/api/bucket/12345")
 
-    @patch("process_issues._create_deposition_resource")
+    @patch("crowdsourcing.process_issues._create_deposition_resource")
     def test_deposit_on_zenodo_create_error(self, mock_create):
         """Test error handling in full deposit process - creation error"""
         mock_create.side_effect = requests.RequestException("Creation Error")
@@ -1251,8 +1289,8 @@ class TestZenodoDeposit(unittest.TestCase):
                 _get_zenodo_token()
             self.assertIn("ZENODO_PRODUCTION token not found", str(context.exception))
 
-    @patch("process_issues._create_deposition_resource")
-    @patch("process_issues._upload_data")
+    @patch("crowdsourcing.process_issues._create_deposition_resource")
+    @patch("crowdsourcing.process_issues._upload_data")
     @patch("requests.post")
     def test_deposit_on_zenodo_publish_error(self, mock_post, mock_upload, mock_create):
         """Test error handling when publish fails"""
@@ -1303,11 +1341,11 @@ class TestProcessOpenIssues(unittest.TestCase):
         """Clean up after each test"""
         self.env_patcher.stop()
 
-    @patch("process_issues.get_open_issues")
-    @patch("process_issues.get_user_id")
-    @patch("process_issues.is_in_safe_list")
-    @patch("process_issues.deposit_on_zenodo")
-    @patch("process_issues.answer")
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.answer")
     def test_process_valid_authorized_issue(
         self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
     ):
@@ -1339,11 +1377,11 @@ class TestProcessOpenIssues(unittest.TestCase):
         self.assertEqual(deposited_data["data"]["title"], self.sample_issue["title"])
         self.assertEqual(deposited_data["provenance"]["wasAttributedTo"], 12345)
 
-    @patch("process_issues.get_open_issues")
-    @patch("process_issues.get_user_id")
-    @patch("process_issues.is_in_safe_list")
-    @patch("process_issues.deposit_on_zenodo")
-    @patch("process_issues.answer")
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.answer")
     def test_process_unauthorized_user(
         self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
     ):
@@ -1371,13 +1409,13 @@ class TestProcessOpenIssues(unittest.TestCase):
         # Verify no deposit was made
         mock_deposit.assert_not_called()
 
-    @patch("process_issues.get_open_issues")
-    @patch("process_issues.get_user_id")
-    @patch("process_issues.is_in_safe_list")
-    @patch("process_issues.validate")
-    @patch("process_issues.get_data_to_store")
-    @patch("process_issues.answer")
-    @patch("process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.validate")
+    @patch("crowdsourcing.process_issues.get_data_to_store")
+    @patch("crowdsourcing.process_issues.answer")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
     def test_process_open_issues_data_processing_error(
         self,
         mock_deposit,
@@ -1405,13 +1443,13 @@ class TestProcessOpenIssues(unittest.TestCase):
         # Verify deposit wasn't attempted since no valid data was processed
         mock_deposit.assert_not_called()
 
-    @patch("process_issues.get_open_issues")
-    @patch("process_issues.get_user_id")
-    @patch("process_issues.is_in_safe_list")
-    @patch("process_issues.validate")
-    @patch("process_issues.get_data_to_store")
-    @patch("process_issues.answer")
-    @patch("process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.validate")
+    @patch("crowdsourcing.process_issues.get_data_to_store")
+    @patch("crowdsourcing.process_issues.answer")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
     def test_process_open_issues_zenodo_deposit_error(
         self,
         mock_deposit,

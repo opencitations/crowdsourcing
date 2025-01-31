@@ -5,6 +5,7 @@ description = "A GitHub bot that automatically validates and processes OpenCitat
 authors = ["arcangelo7 <arcangelomas@gmail.com>"]
 license = "ISC License"
 readme = "README.md"
+packages = [{include = "crowdsourcing"}]
 
 [tool.poetry.dependencies]
 python = "<3.14,>=3.10"
@@ -19,6 +20,9 @@ oc-meta = "^2.0.3"
 isort = "^6.0.0"
 python-dotenv = "^1.0.1"
 coverage = "^7.6.10"
+
+[tool.poetry.scripts]
+meta-process = "scripts.run_meta_process:main"
 
 [build-system]
 requires = ["poetry-core"]
