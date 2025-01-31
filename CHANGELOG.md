@@ -1,3 +1,9 @@
+## [1.3.0](https://github.com/opencitations/crowdsourcing/compare/v1.2.2...v1.3.0) (2025-01-31)
+
+### Features
+
+* improve Zenodo validation report handling and URLs ([a03d78a](https://github.com/opencitations/crowdsourcing/commit/a03d78a6d2f62e08cb40c8ab2e5bdcc88245cea0))
+
 ## [1.2.2](https://github.com/opencitations/crowdsourcing/compare/v1.2.1...v1.2.2) (2025-01-31)
 
 ### Bug Fixes
