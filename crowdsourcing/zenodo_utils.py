@@ -46,18 +46,29 @@ def get_zenodo_base_url() -> str:
 
 
 def create_deposition_resource(
-    date: str, metadata: dict, base_url: str
+    date: str, metadata: dict, base_url: str = None
 ) -> Tuple[str, str]:
-    """Create a new deposition resource on Zenodo."""
+    """Create a new deposition resource on Zenodo.
+
+    Args:
+        date: The publication date in ISO format (YYYY-MM-DD)
+        metadata: The metadata for the deposition (will be wrapped in {"metadata": metadata})
+        base_url: The Zenodo API base URL (optional, defaults to environment-based URL)
+
+    Returns:
+        Tuple containing:
+        - str: The deposition ID
+        - str: The bucket URL for file uploads
+    """
     headers = {"Content-Type": "application/json"}
 
-    # Update metadata with the provided date
-    metadata["publication_date"] = date
+    # Zenodo API expects metadata wrapped in a "metadata" key
+    payload = {"metadata": metadata}
 
     response = requests.post(
         f"{base_url}/deposit/depositions",
         params={"access_token": get_zenodo_token()},
-        json={"metadata": metadata},
+        json=payload,
         headers=headers,
         timeout=30,
     )

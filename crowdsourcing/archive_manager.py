@@ -134,7 +134,7 @@ class ArchiveManager:
         try:
             # Create Zenodo deposition
             base_url = get_zenodo_base_url()
-            date = datetime.now().isoformat()
+            date = datetime.now().strftime("%Y-%m-%d")  # Solo la data senza ora
             metadata = self.config["zenodo"]["metadata_template"].copy()
 
             # Create a meaningful title with number of reports and date range
@@ -164,6 +164,7 @@ class ArchiveManager:
             metadata["description"] = (
                 f"This deposit contains {len(reports_to_archive)} validation reports generated {date_range} to validate citation data and metadata submitted through GitHub issues in the OpenCitations crowdsourcing repository."
             )
+            metadata["publication_date"] = date  # Settiamo la data qui
 
             deposition_id, bucket_url = create_deposition_resource(
                 date=date,
@@ -192,6 +193,7 @@ class ArchiveManager:
                 params={"access_token": get_zenodo_token()},
             )
             r.raise_for_status()
+
             doi = r.json()["doi"]
 
             # Update index

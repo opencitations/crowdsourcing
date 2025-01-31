@@ -6,16 +6,19 @@ validation_reports:
 
 zenodo:
   metadata_template:
-    title: "OpenCitations Validation Reports Archive"
-    description: "Archive of validation reports from the OpenCitations crowdsourcing system"
+    upload_type: "dataset"
+    access_right: "open"
+    license: "CC0-1.0"
     creators:
-      - name: "OpenCitations"
+      - name: "OpenCitations Bot"
         affiliation: "OpenCitations"
+    version: "1.0.0"
     keywords: 
       - "OpenCitations"
       - "validation"
       - "reports"
       - "crowdsourcing"
-    access_right: "open"
-    upload_type: "dataset"
-    license: "CC0-1.0" 
+    related_identifiers:
+      - identifier: "https://github.com/opencitations/crowdsourcing"
+        relation: "isSupplementTo"
+        resource_type: "software" 
