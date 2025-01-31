@@ -1,3 +1,9 @@
+## [1.2.2](https://github.com/opencitations/crowdsourcing/compare/v1.2.1...v1.2.2) (2025-01-31)
+
+### Bug Fixes
+
+* add validation report redirect page ([5542f41](https://github.com/opencitations/crowdsourcing/commit/5542f41bbda2e922dded9f6b09166d967140228a))
+
 ## [1.2.1](https://github.com/opencitations/crowdsourcing/compare/v1.2.0...v1.2.1) (2025-01-31)
 
 ### Bug Fixes
