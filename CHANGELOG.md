@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/opencitations/crowdsourcing/compare/v1.0.1...v1.0.2) (2025-01-31)
+
+### Bug Fixes
+
+* use persistent GitHub API URLs for user identification ([ddf3d29](https://github.com/opencitations/crowdsourcing/commit/ddf3d29e9713609b4d07e1af051d5f1448a0502a))
+
 ## [1.0.1](https://github.com/opencitations/crowdsourcing/compare/v1.0.0...v1.0.1) (2025-01-30)
 
 ### Bug Fixes
