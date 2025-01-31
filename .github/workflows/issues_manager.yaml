@@ -35,7 +35,7 @@ jobs:
         run: poetry install --no-interaction --only main
         
       - name: Process the issue
-        run: poetry run python3 process_issues.py
+        run: poetry run python3 crowdsourcing/process_issues.py
 
       # Add new steps to commit and push validation reports
       - name: Commit validation reports
