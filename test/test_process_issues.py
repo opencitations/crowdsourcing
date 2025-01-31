@@ -244,7 +244,15 @@ INVALID_SEPARATOR
 
         self.assertIn("Failed to process issue data", str(context.exception))
 
-    def test_validation_with_validator(self):
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.validate")
+    @patch("crowdsourcing.process_issues.get_data_to_store")
+    @patch("crowdsourcing.process_issues.answer")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_with_validator(self, mock_archive_manager, *args):
         """Test validation using the oc_validator library"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         # CSV con errori di validazione intenzionali
@@ -252,7 +260,7 @@ INVALID_SEPARATOR
 "doi:10.1007/s42835-022-01029-y","","","","","","","","invalid_type","",""
 ===###===@@@===
 "citing_id","cited_id"
-"doi:10.1007/s42835-022-01029-y","invalid_doi"\""""
+"doi:10.1007/s42835-022-01029-y","invalid_doi\""""
 
         # Create required directories
         os.makedirs("validation_output", exist_ok=True)
@@ -266,16 +274,6 @@ INVALID_SEPARATOR
         self.assertIn("Validation errors found in", message)
         self.assertIn("metadata and citations", message)
 
-        # Verify validation files were created
-        self.assertTrue(os.path.exists("validation_output/meta_validation_summary.txt"))
-        self.assertTrue(os.path.exists("validation_output/cits_validation_summary.txt"))
-        self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
-        self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
-
-        # Verify HTML reports were generated
-        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
-        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
-
         # Verify final report was generated in docs/validation_reports
         report_files = os.listdir("docs/validation_reports")
         self.assertTrue(
@@ -284,6 +282,9 @@ INVALID_SEPARATOR
                 for f in report_files
             )
         )
+
+        # Verify archive_manager.add_report was called
+        mock_archive_manager.add_report.assert_called_once()
 
     def test_validation_with_metadata_validation_file(self):
         """Test validation when metadata validation file contains errors"""
@@ -319,7 +320,8 @@ INVALID_SEPARATOR
         self.assertIn("not processable", message)
         self.assertIn("META-CSV nor CITS-CSV basic structure", message)
 
-    def test_validation_reads_validation_files(self):
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_reads_validation_files(self, mock_archive_manager):
         """Test that validation properly reads and processes validation files"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         # CSV con errori di validazione intenzionali
@@ -331,59 +333,37 @@ INVALID_SEPARATOR
 "doi:10.1007/s42835-022-01029-y","invalid_doi"
 "doi:10.1162/qss_a_00292","doi:10.1007/s42835-022-01029-y"\""""
 
-        try:
-            # Create required directories
-            os.makedirs("validation_output", exist_ok=True)
-            os.makedirs("docs/validation_reports", exist_ok=True)
+        # Create required directories
+        os.makedirs("validation_output", exist_ok=True)
+        os.makedirs("docs/validation_reports", exist_ok=True)
 
-            # Run validation
-            is_valid, message = validate(title, body)
+        # Run validation
+        is_valid, message = validate(title, body)
 
-            # Verify validation failed
-            self.assertFalse(is_valid)
-            self.assertIn("Validation errors found in metadata and citations", message)
-            self.assertIn("Please check the detailed validation report:", message)
-            self.assertIn(
-                "test-org.github.io/test-repo/validation_reports/index.html?report=validation_",
-                message,
+        # Verify validation failed
+        self.assertFalse(is_valid)
+        self.assertIn("Validation errors found in metadata and citations", message)
+        self.assertIn("Please check the detailed validation report:", message)
+        self.assertIn(
+            "test-org.github.io/test-repo/validation_reports/index.html?report=validation_",
+            message,
+        )
+        self.assertIn(".html", message)
+
+        # Verify final report was generated in docs/validation_reports
+        report_files = os.listdir("docs/validation_reports")
+        self.assertTrue(
+            any(
+                f.startswith("validation_") and f.endswith(".html")
+                for f in report_files
             )
-            self.assertIn(".html", message)
+        )
 
-            # Verify validation files were created
-            self.assertTrue(
-                os.path.exists("validation_output/meta_validation_summary.txt")
-            )
-            self.assertTrue(
-                os.path.exists("validation_output/cits_validation_summary.txt")
-            )
-            self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
-            self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
+        # Verify archive_manager.add_report was called
+        mock_archive_manager.add_report.assert_called_once()
 
-            # Verify HTML reports were generated
-            self.assertTrue(os.path.exists("validation_output/meta_report.html"))
-            self.assertTrue(os.path.exists("validation_output/cits_report.html"))
-
-            # Verify final report was generated in docs/validation_reports
-            report_files = os.listdir("docs/validation_reports")
-            self.assertTrue(
-                any(
-                    f.startswith("validation_") and f.endswith(".html")
-                    for f in report_files
-                )
-            )
-
-        finally:
-            # Clean up
-            if os.path.exists("validation_output"):
-                shutil.rmtree("validation_output")
-            if os.path.exists("docs/validation_reports"):
-                shutil.rmtree("docs/validation_reports")
-            if os.path.exists("temp_metadata.csv"):
-                os.remove("temp_metadata.csv")
-            if os.path.exists("temp_citations.csv"):
-                os.remove("temp_citations.csv")
-
-    def test_validation_html_report_generation(self):
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_html_report_generation(self, mock_archive_manager):
         """Test that HTML validation reports are properly generated when validation fails"""
         # Clean up any existing directories from previous tests
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
@@ -399,10 +379,6 @@ INVALID_SEPARATOR
 
         # Verify validation failed
         self.assertFalse(is_valid)
-
-        # Check that HTML reports were generated
-        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
-        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
 
         # Check that merged report exists in docs/validation_reports
         report_files = os.listdir("docs/validation_reports")
@@ -421,11 +397,10 @@ INVALID_SEPARATOR
         )
         self.assertIn(".html", message)
 
-        # Clean up
-        shutil.rmtree("validation_output")
-        shutil.rmtree("docs/validation_reports")
-
-    def test_validation_html_report_generation_only_metadata_errors(self):
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_html_report_generation_only_metadata_errors(
+        self, mock_archive_manager
+    ):
         """Test HTML report generation when only metadata has validation errors"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         # CSV with invalid metadata but valid citations
@@ -442,23 +417,24 @@ INVALID_SEPARATOR
         # Verify validation failed
         self.assertFalse(is_valid)
 
-        # Check that only metadata report was generated
-        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
-        self.assertFalse(os.path.exists("validation_output/cits_report.html"))
-
-        # Check that final report exists and is a copy of metadata report
+        # Check that final report exists
         report_files = [
             f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
         ]
-        self.assertEqual(len(report_files), 1)
-        report_path = os.path.join("docs/validation_reports", report_files[0])
+        self.assertEqual(len(report_files), 1, "Should be exactly one final report")
+        final_report = report_files[0]
+        self.assertTrue(final_report.startswith("validation_"))
 
-        with open("validation_output/meta_report.html", "r") as f1, open(
-            report_path, "r"
-        ) as f2:
-            self.assertEqual(f1.read(), f2.read())
+        # Verify archive_manager.add_report was called with correct parameters
+        mock_archive_manager.add_report.assert_called_once_with(
+            final_report,
+            f"https://test-org.github.io/test-repo/validation_reports/{final_report}",
+        )
 
-    def test_validation_html_report_generation_only_citations_errors(self):
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_html_report_generation_only_citations_errors(
+        self, mock_archive_manager
+    ):
         """Test HTML report generation when only citations have validation errors"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         # CSV with valid metadata but invalid citations
@@ -474,21 +450,19 @@ INVALID_SEPARATOR
         # Verify validation failed
         self.assertFalse(is_valid)
 
-        # Check that only citations report was generated
-        self.assertFalse(os.path.exists("validation_output/meta_report.html"))
-        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
-
-        # Check that final report exists and is a copy of citations report
+        # Check that final report exists
         report_files = [
             f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
         ]
-        self.assertEqual(len(report_files), 1)
-        report_path = os.path.join("docs/validation_reports", report_files[0])
+        self.assertEqual(len(report_files), 1, "Should be exactly one final report")
+        final_report = report_files[0]
+        self.assertTrue(final_report.startswith("validation_"))
 
-        with open("validation_output/cits_report.html", "r") as f1, open(
-            report_path, "r"
-        ) as f2:
-            self.assertEqual(f1.read(), f2.read())
+        # Verify archive_manager.add_report was called with correct parameters
+        mock_archive_manager.add_report.assert_called_once_with(
+            final_report,
+            f"https://test-org.github.io/test-repo/validation_reports/{final_report}",
+        )
 
     def test_validate_empty_body(self):
         """Test validate() with empty body content"""

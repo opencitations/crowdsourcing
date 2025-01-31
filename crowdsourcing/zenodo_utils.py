@@ -35,11 +35,24 @@ def get_zenodo_token() -> str:
         return token
 
 
+def get_zenodo_base_url() -> str:
+    """Get the appropriate Zenodo API base URL based on environment."""
+    environment = os.environ.get("ENVIRONMENT", "development")
+    return (
+        "https://sandbox.zenodo.org/api"
+        if environment == "development"
+        else "https://zenodo.org/api"
+    )
+
+
 def create_deposition_resource(
-    date: str, metadata: dict, base_url: str = "https://zenodo.org/api"
+    date: str, metadata: dict, base_url: str = None
 ) -> Tuple[str, str]:
     """Create a new deposition resource on Zenodo."""
     headers = {"Content-Type": "application/json"}
+
+    if base_url is None:
+        base_url = get_zenodo_base_url()
 
     response = requests.post(
         f"{base_url}/deposit/depositions",

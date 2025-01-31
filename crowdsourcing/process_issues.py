@@ -243,7 +243,12 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
 
     except Exception as e:
         logger.error(f"Validation error: {e}")
-        # Clean up temporary files and directory in case of error
+        return (
+            False,
+            f"Error validating data: {str(e)}. Please ensure both metadata and citations are valid CSVs following the required format.",
+        )
+    finally:
+        # Clean up temporary files in all cases
         cleanup_files = [
             "temp_metadata.csv",
             "temp_citations.csv",
@@ -254,11 +259,6 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
 
         if os.path.exists("validation_output"):
             shutil.rmtree("validation_output")
-
-        return (
-            False,
-            f"Error validating data: {str(e)}. Please ensure both metadata and citations are valid CSVs following the required format.",
-        )
 
 
 def answer(

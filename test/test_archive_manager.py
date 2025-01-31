@@ -279,7 +279,7 @@ class TestArchiveManager(unittest.TestCase):
         """Test that archive_reports properly handles and logs errors."""
         # Setup error to be raised
         test_error = requests.exceptions.HTTPError(
-            "403 Client Error: FORBIDDEN for url: https://zenodo.org/api/deposit/depositions"
+            "403 Client Error: FORBIDDEN for url: https://sandbox.zenodo.org/api/deposit/depositions"
         )
         mock_create_deposition.side_effect = test_error
 
@@ -296,10 +296,10 @@ class TestArchiveManager(unittest.TestCase):
 
         self.assertEqual(
             str(context.exception),
-            "403 Client Error: FORBIDDEN for url: https://zenodo.org/api/deposit/depositions",
+            "403 Client Error: FORBIDDEN for url: https://sandbox.zenodo.org/api/deposit/depositions",
         )
         mock_logger.error.assert_called_once_with(
-            "Failed to archive reports: 403 Client Error: FORBIDDEN for url: https://zenodo.org/api/deposit/depositions"
+            "Failed to archive reports: 403 Client Error: FORBIDDEN for url: https://sandbox.zenodo.org/api/deposit/depositions"
         )
 
         # Verify that index remains unchanged
