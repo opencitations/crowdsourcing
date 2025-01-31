@@ -1,3 +1,14 @@
+## [1.1.0](https://github.com/opencitations/crowdsourcing/compare/v1.0.2...v1.1.0) (2025-01-31)
+
+### Features
+
+* Add automatic archival workflow for validation reports to Zenodo ([2a8ebde](https://github.com/opencitations/crowdsourcing/commit/2a8ebde667ef7d2d87c4e185ee230052043aee88))
+
+### Bug Fixes
+
+* add get_zenodo_base_url and improve tests ([3326506](https://github.com/opencitations/crowdsourcing/commit/33265067d3655c0657d33cb4d4ccb6dae9ae128d))
+* **ci:** add ZENODO_SANDBOX token to test environment ([f393456](https://github.com/opencitations/crowdsourcing/commit/f39345663ba472dae7b99263dd40dd9be6e0cb29))
+
 ## [1.0.2](https://github.com/opencitations/crowdsourcing/compare/v1.0.1...v1.0.2) (2025-01-31)
 
 ### Bug Fixes
