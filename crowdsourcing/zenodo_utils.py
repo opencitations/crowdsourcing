@@ -46,13 +46,13 @@ def get_zenodo_base_url() -> str:
 
 
 def create_deposition_resource(
-    date: str, metadata: dict, base_url: str = None
+    date: str, metadata: dict, base_url: str
 ) -> Tuple[str, str]:
     """Create a new deposition resource on Zenodo."""
     headers = {"Content-Type": "application/json"}
 
-    if base_url is None:
-        base_url = get_zenodo_base_url()
+    # Update metadata with the provided date
+    metadata["publication_date"] = date
 
     response = requests.post(
         f"{base_url}/deposit/depositions",

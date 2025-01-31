@@ -17,14 +17,17 @@
 import json
 import logging
 import os
-import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 import requests
 import yaml
-from crowdsourcing.zenodo_utils import create_deposition_resource, get_zenodo_token
+from crowdsourcing.zenodo_utils import (
+    create_deposition_resource,
+    get_zenodo_base_url,
+    get_zenodo_token,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -130,9 +133,42 @@ class ArchiveManager:
 
         try:
             # Create Zenodo deposition
+            base_url = get_zenodo_base_url()
+            date = datetime.now().isoformat()
+            metadata = self.config["zenodo"]["metadata_template"].copy()
+
+            # Create a meaningful title with number of reports and date range
+            first_report_date = min(
+                datetime.fromtimestamp(
+                    os.path.getctime(os.path.join(self.reports_dir, x))
+                ).strftime("%Y-%m-%d")
+                for x in reports_to_archive
+                if os.path.exists(os.path.join(self.reports_dir, x))
+            )
+            last_report_date = max(
+                datetime.fromtimestamp(
+                    os.path.getctime(os.path.join(self.reports_dir, x))
+                ).strftime("%Y-%m-%d")
+                for x in reports_to_archive
+                if os.path.exists(os.path.join(self.reports_dir, x))
+            )
+            date_range = (
+                f"from {first_report_date} to {last_report_date}"
+                if first_report_date != last_report_date
+                else f"on {first_report_date}"
+            )
+
+            metadata["title"] = (
+                f"OpenCitations validation reports: {len(reports_to_archive)} reports {date_range}"
+            )
+            metadata["description"] = (
+                f"This deposit contains {len(reports_to_archive)} validation reports generated {date_range} to validate citation data and metadata submitted through GitHub issues in the OpenCitations crowdsourcing repository."
+            )
+
             deposition_id, bucket_url = create_deposition_resource(
-                date=datetime.now().isoformat(),
-                metadata=self.config["zenodo"]["metadata_template"],
+                date=date,
+                metadata=metadata,
+                base_url=base_url,
             )
 
             # Upload reports to Zenodo
@@ -152,7 +188,7 @@ class ArchiveManager:
 
             # Publish the deposition
             r = requests.post(
-                f"https://zenodo.org/api/deposit/depositions/{deposition_id}/actions/publish",
+                f"{base_url}/deposit/depositions/{deposition_id}/actions/publish",
                 params={"access_token": get_zenodo_token()},
             )
             r.raise_for_status()
