@@ -1,0 +1,21 @@
+validation_reports:
+  max_reports_before_archive: 1  # Maximum number of reports before triggering archival
+  archive_batch_size: 50  # How many reports to archive at once on Zenodo
+  reports_dir: "docs/validation_reports"  # Directory containing the reports
+  index_file: "docs/validation_reports/index.json"  # Mapping file for redirections
+
+zenodo:
+  metadata_template:
+    title: "OpenCitations Validation Reports Archive"
+    description: "Archive of validation reports from the OpenCitations crowdsourcing system"
+    creators:
+      - name: "OpenCitations"
+        affiliation: "OpenCitations"
+    keywords: 
+      - "OpenCitations"
+      - "validation"
+      - "reports"
+      - "crowdsourcing"
+    access_right: "open"
+    upload_type: "dataset"
+    license: "CC0-1.0" 

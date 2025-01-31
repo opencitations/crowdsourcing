@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# Copyright 2022 Arcangelo Massari <arcangelo.massari@unibo.it>
+# Copyright 2025 Arcangelo Massari <arcangelo.massari@unibo.it>
 #
 # Permission to use, copy, modify, and/or distribute this software for any purpose
 # with or without fee is hereby granted, provided that the above copyright notice
@@ -39,9 +39,14 @@ from oc_ds_converter.oc_idmanager.wikidata import WikidataManager
 from oc_ds_converter.oc_idmanager.wikipedia import WikipediaManager
 from oc_validator.interface.gui import make_gui, merge_html_files
 from oc_validator.main import ClosureValidator
+from crowdsourcing.archive_manager import ArchiveManager
+from crowdsourcing.zenodo_utils import create_deposition_resource, get_zenodo_token
 
 # Constants
 SAFE_LIST_PATH = "safe_list.yaml"
+
+# Initialize archive manager
+archive_manager = ArchiveManager()
 
 
 def _validate_title(title: str) -> Tuple[bool, str]:
@@ -211,9 +216,13 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
             else:  # has_cits_errors
                 shutil.copy("validation_output/cits_report.html", report_path)
 
-            # Get repository from environment
+            # Get repository from environment and construct report URL
             repository = os.environ["GITHUB_REPOSITORY"]
-            report_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}/validation_reports/{report_filename}"
+            base_url = f"https://{repository.split('/')[0]}.github.io/{repository.split('/')[1]}"
+            report_url = f"{base_url}/validation_reports/{report_filename}"
+
+            # Add report to archive manager
+            archive_manager.add_report(report_filename, report_url)
 
             # Create error message based on which parts have errors
             error_parts = []
@@ -222,7 +231,8 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
             if has_cits_errors:
                 error_parts.append("citations")
 
-            error_message = f"Validation errors found in {' and '.join(error_parts)}. Please check the detailed validation report: {report_url}"
+            # Use index.html with report parameter for redirection
+            error_message = f"Validation errors found in {' and '.join(error_parts)}. Please check the detailed validation report: {base_url}/validation_reports/index.html?report={report_filename}"
             return False, error_message
 
         # If no validation errors, return success
@@ -425,69 +435,43 @@ def get_data_to_store(
 
 def _get_zenodo_token() -> str:
     """Get the appropriate Zenodo token based on environment."""
-    environment = os.environ.get("ENVIRONMENT", "development")
-    if environment == "development":
-        token = os.environ.get("ZENODO_SANDBOX")
-        if not token:
-            raise ValueError("ZENODO_SANDBOX token not found in environment")
-        return token
-    else:
-        token = os.environ.get("ZENODO_PRODUCTION")
-        if not token:
-            raise ValueError("ZENODO_PRODUCTION token not found in environment")
-        return token
+    return get_zenodo_token()
 
 
 def _create_deposition_resource(
     date: str, base_url: str = "https://zenodo.org/api"
 ) -> Tuple[str, str]:
     """Create a new deposition resource on Zenodo."""
-    headers = {"Content-Type": "application/json"}
-
     metadata = {
-        "metadata": {
-            "upload_type": "dataset",
-            "publication_date": date,
-            "title": f"OpenCitations crowdsourcing: deposits of {date[:7]}",
-            "creators": [
-                {
-                    "name": "crocibot",
-                    "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
-                }
-            ],
-            "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every month. This upload contains the data of deposit issues published in {date[:7]}.",
-            "access_right": "open",
-            "license": "CC0-1.0",
-            "prereserve_doi": True,
-            "keywords": [
-                "OpenCitations",
-                "crowdsourcing",
-                "provenance",
-                "GitHub issues",
-            ],
-            "related_identifiers": [
-                {
-                    "identifier": "https://github.com/opencitations/crowdsourcing",
-                    "relation": "isDerivedFrom",
-                    "resource_type": "dataset",
-                }
-            ],
-            "version": "1.0.0",
-        }
+        "upload_type": "dataset",
+        "publication_date": date,
+        "title": f"OpenCitations crowdsourcing: deposits of {date[:7]}",
+        "creators": [
+            {
+                "name": "crocibot",
+                "affiliation": "Research Centre for Open Scholarly Metadata, Department of Classical Philology and Italian Studies, University of Bologna, Bologna, Italy",
+            }
+        ],
+        "description": f"OpenCitations collects citation data and related metadata from the community through issues on the GitHub repository <a href='https://github.com/opencitations/crowdsourcing'>https://github.com/opencitations/crowdsourcing</a>. In order to preserve long-term provenance information, such data is uploaded to Zenodo every month. This upload contains the data of deposit issues published in {date[:7]}.",
+        "access_right": "open",
+        "license": "CC0-1.0",
+        "prereserve_doi": True,
+        "keywords": [
+            "OpenCitations",
+            "crowdsourcing",
+            "provenance",
+            "GitHub issues",
+        ],
+        "related_identifiers": [
+            {
+                "identifier": "https://github.com/opencitations/crowdsourcing",
+                "relation": "isDerivedFrom",
+                "resource_type": "dataset",
+            }
+        ],
+        "version": "1.0.0",
     }
-
-    response = requests.post(
-        f"{base_url}/deposit/depositions",
-        params={"access_token": _get_zenodo_token()},
-        json=metadata,
-        headers=headers,
-        timeout=30,
-    )
-
-    response.raise_for_status()
-    data = response.json()
-
-    return data["id"], data["links"]["bucket"]
+    return create_deposition_resource(date, metadata, base_url)
 
 
 def _upload_data(

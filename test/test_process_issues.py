@@ -103,6 +103,10 @@ class TestValidation(unittest.TestCase):
             if os.path.exists(path):
                 shutil.rmtree(path)
 
+        # Create required directories
+        os.makedirs("validation_output", exist_ok=True)
+        os.makedirs("docs/validation_reports", exist_ok=True)
+
         # Setup environment variables
         self.env_patcher = patch.dict(
             "os.environ",
@@ -250,52 +254,36 @@ INVALID_SEPARATOR
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","invalid_doi"\""""
 
-        try:
-            # Create required directories
-            os.makedirs("validation_output", exist_ok=True)
-            os.makedirs("docs/validation_reports", exist_ok=True)
+        # Create required directories
+        os.makedirs("validation_output", exist_ok=True)
+        os.makedirs("docs/validation_reports", exist_ok=True)
 
-            # Run validation
-            is_valid, message = validate(title, body)
+        # Run validation
+        is_valid, message = validate(title, body)
 
-            # Verify validation failed
-            self.assertFalse(is_valid)
-            self.assertIn("Validation errors found in", message)
-            self.assertIn("metadata and citations", message)
+        # Verify validation failed
+        self.assertFalse(is_valid)
+        self.assertIn("Validation errors found in", message)
+        self.assertIn("metadata and citations", message)
 
-            # Verify validation files were created
-            self.assertTrue(
-                os.path.exists("validation_output/meta_validation_summary.txt")
+        # Verify validation files were created
+        self.assertTrue(os.path.exists("validation_output/meta_validation_summary.txt"))
+        self.assertTrue(os.path.exists("validation_output/cits_validation_summary.txt"))
+        self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
+        self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
+
+        # Verify HTML reports were generated
+        self.assertTrue(os.path.exists("validation_output/meta_report.html"))
+        self.assertTrue(os.path.exists("validation_output/cits_report.html"))
+
+        # Verify final report was generated in docs/validation_reports
+        report_files = os.listdir("docs/validation_reports")
+        self.assertTrue(
+            any(
+                f.startswith("validation_") and f.endswith(".html")
+                for f in report_files
             )
-            self.assertTrue(
-                os.path.exists("validation_output/cits_validation_summary.txt")
-            )
-            self.assertTrue(os.path.exists("validation_output/out_validate_meta.json"))
-            self.assertTrue(os.path.exists("validation_output/out_validate_cits.json"))
-
-            # Verify HTML reports were generated
-            self.assertTrue(os.path.exists("validation_output/meta_report.html"))
-            self.assertTrue(os.path.exists("validation_output/cits_report.html"))
-
-            # Verify final report was generated in docs/validation_reports
-            report_files = os.listdir("docs/validation_reports")
-            self.assertTrue(
-                any(
-                    f.startswith("validation_") and f.endswith(".html")
-                    for f in report_files
-                )
-            )
-
-        finally:
-            # Clean up
-            if os.path.exists("validation_output"):
-                shutil.rmtree("validation_output")
-            if os.path.exists("docs/validation_reports"):
-                shutil.rmtree("docs/validation_reports")
-            if os.path.exists("temp_metadata.csv"):
-                os.remove("temp_metadata.csv")
-            if os.path.exists("temp_citations.csv"):
-                os.remove("temp_citations.csv")
+        )
 
     def test_validation_with_metadata_validation_file(self):
         """Test validation when metadata validation file contains errors"""
@@ -355,6 +343,11 @@ INVALID_SEPARATOR
             self.assertFalse(is_valid)
             self.assertIn("Validation errors found in metadata and citations", message)
             self.assertIn("Please check the detailed validation report:", message)
+            self.assertIn(
+                "test-org.github.io/test-repo/validation_reports/index.html?report=validation_",
+                message,
+            )
+            self.assertIn(".html", message)
 
             # Verify validation files were created
             self.assertTrue(
@@ -378,10 +371,6 @@ INVALID_SEPARATOR
                     for f in report_files
                 )
             )
-
-            # Verify report URL format in message
-            self.assertIn("validation_reports/validation_", message)
-            self.assertIn(".html", message)
 
         finally:
             # Clean up
@@ -426,7 +415,11 @@ INVALID_SEPARATOR
 
         # Verify report URL is in the error message
         self.assertIn("Please check the detailed validation report:", message)
-        self.assertIn("validation_reports/validation_", message)
+        self.assertIn(
+            "test-org.github.io/test-repo/validation_reports/index.html?report=validation_",
+            message,
+        )
+        self.assertIn(".html", message)
 
         # Clean up
         shutil.rmtree("validation_output")
@@ -454,7 +447,9 @@ INVALID_SEPARATOR
         self.assertFalse(os.path.exists("validation_output/cits_report.html"))
 
         # Check that final report exists and is a copy of metadata report
-        report_files = os.listdir("docs/validation_reports")
+        report_files = [
+            f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
+        ]
         self.assertEqual(len(report_files), 1)
         report_path = os.path.join("docs/validation_reports", report_files[0])
 
@@ -484,7 +479,9 @@ INVALID_SEPARATOR
         self.assertTrue(os.path.exists("validation_output/cits_report.html"))
 
         # Check that final report exists and is a copy of citations report
-        report_files = os.listdir("docs/validation_reports")
+        report_files = [
+            f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
+        ]
         self.assertEqual(len(report_files), 1)
         report_path = os.path.join("docs/validation_reports", report_files[0])
 
