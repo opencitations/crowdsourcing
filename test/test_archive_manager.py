@@ -127,7 +127,7 @@ class TestArchiveManager(unittest.TestCase):
 
         # Create test reports
         for i in range(4):
-            report_name = f"report_{i}.html"
+            report_name = f"validation_issue_{i}.html"
             report_path = os.path.join(self.reports_dir, report_name)
             with open(report_path, "w") as f:
                 f.write(f"Test report {i}")
@@ -142,8 +142,9 @@ class TestArchiveManager(unittest.TestCase):
         self.assertEqual(len(index_data["zenodo_reports"]), 2)
         self.assertTrue(
             all(
-                url.startswith("https://doi.org/")
-                for url in index_data["zenodo_reports"].values()
+                report_data["doi"].startswith("https://doi.org/")
+                and report_data["url"].startswith("https://sandbox.zenodo.org/record/")
+                for report_data in index_data["zenodo_reports"].values()
             )
         )
 
@@ -151,14 +152,17 @@ class TestArchiveManager(unittest.TestCase):
         """Test getting URL for a report that's been archived to Zenodo."""
         # Add a report to zenodo_reports directly
         report_name = "archived_report.html"
-        zenodo_url = "https://doi.org/10.5281/zenodo.123"
+        zenodo_data = {
+            "url": "https://sandbox.zenodo.org/record/123/files/archived_report.html",
+            "doi": "https://doi.org/10.5281/zenodo.123",
+        }
 
         index_data = self.manager._load_index()
-        index_data["zenodo_reports"][report_name] = zenodo_url
+        index_data["zenodo_reports"][report_name] = zenodo_data
         self.manager._save_index(index_data)
 
         url = self.manager.get_report_url(report_name)
-        self.assertEqual(url, zenodo_url)
+        self.assertEqual(url, zenodo_data["url"])  # Should return the direct URL
 
     def test_get_report_url_not_found(self):
         """Test getting URL for a non-existent report."""
@@ -194,60 +198,6 @@ class TestArchiveManager(unittest.TestCase):
         # Check that directories were created
         self.assertTrue(os.path.exists(self.reports_dir))
         self.assertTrue(os.path.exists(self.manager.index_path))
-
-    @patch.dict(
-        os.environ, {"ENVIRONMENT": "development", "ZENODO_SANDBOX": "fake-token"}
-    )
-    @patch("crowdsourcing.zenodo_utils.create_deposition_resource")
-    @patch("crowdsourcing.zenodo_utils.get_zenodo_token")
-    @patch("requests.put")
-    @patch("requests.post")
-    def test_archive_reports_handles_missing_files(
-        self, mock_post, mock_put, mock_get_token, mock_create_deposition
-    ):
-        """Test that archive_reports handles missing report files gracefully."""
-        # Setup mocks
-        mock_response = {"id": "123", "links": {"bucket": "http://bucket-url"}}
-        mock_create_deposition.return_value = (
-            mock_response["id"],
-            mock_response["links"]["bucket"],
-        )
-        mock_get_token.return_value = "fake-token"
-        mock_put.return_value.raise_for_status = MagicMock()
-
-        # Mock the POST request responses
-        mock_deposition_response = MagicMock()
-        mock_deposition_response.json.return_value = mock_response
-        mock_deposition_response.raise_for_status = MagicMock()
-
-        mock_publish_response = MagicMock()
-        mock_publish_response.json.return_value = {"doi": "10.5281/zenodo.123"}
-        mock_publish_response.raise_for_status = MagicMock()
-
-        mock_post.side_effect = [mock_deposition_response, mock_publish_response]
-
-        # Add a missing report and an existing report
-        self.manager.add_report("missing.html", "http://example.com/missing")
-
-        report_path = os.path.join(self.reports_dir, "existing.html")
-        with open(report_path, "w") as f:
-            f.write("Test report")
-        self.manager.add_report("existing.html", "http://example.com/existing")
-
-        # Force archive
-        self.manager.archive_reports()
-
-        # Check that only the existing file was processed
-        with open(self.manager.index_path) as f:
-            index_data = json.load(f)
-
-        # The existing file should be moved to Zenodo
-        self.assertNotIn("existing.html", index_data["github_reports"])
-        self.assertIn("existing.html", index_data["zenodo_reports"])
-
-        # The missing file should remain in github_reports
-        self.assertIn("missing.html", index_data["github_reports"])
-        self.assertNotIn("missing.html", index_data["zenodo_reports"])
 
     def test_archive_reports_no_reports(self):
         """Test that archive_reports returns None when there are no reports to archive."""

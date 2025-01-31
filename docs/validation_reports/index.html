@@ -21,9 +21,16 @@
             border-radius: 4px;
             margin-top: 20px;
         }
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
+    <div id="loading" class="loading">
+        Loading report...
+    </div>
     <div id="error" class="error" style="display: none">
         Report not found. Please check the URL and try again.
     </div>
@@ -37,29 +44,59 @@
             return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
         }
 
+        // Function to check if a URL is accessible
+        async function isUrlAccessible(url) {
+            try {
+                const response = await fetch(url, { method: 'HEAD' });
+                return response.ok;
+            } catch (error) {
+                return false;
+            }
+        }
+
         // Main initialization
-        fetch('index.json')
-            .then(response => response.json())
-            .then(data => {
+        async function init() {
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch('index.json');
+                const data = await response.json();
                 const redirectTo = getUrlParameter('report');
+                
                 if (redirectTo) {
+                    // Check GitHub reports first
                     const githubUrl = data.github_reports[redirectTo];
-                    const zenodoUrl = data.zenodo_reports[redirectTo];
                     if (githubUrl) {
                         window.location.href = githubUrl;
                         return;
-                    } else if (zenodoUrl) {
-                        window.location.href = zenodoUrl;
+                    }
+
+                    // Then check Zenodo reports
+                    const zenodoData = data.zenodo_reports[redirectTo];
+                    if (zenodoData) {
+                        // Try direct URL first
+                        if (await isUrlAccessible(zenodoData.url)) {
+                            window.location.href = zenodoData.url;
+                            return;
+                        }
+                        // Fallback to DOI if direct URL is not accessible
+                        window.location.href = zenodoData.doi;
                         return;
                     }
                 }
                 // Show error if no valid redirection
+                loadingDiv.style.display = 'none';
                 document.getElementById('error').style.display = 'block';
-            })
-            .catch(error => {
+            } catch (error) {
                 console.error('Error loading report data:', error);
+                loadingDiv.style.display = 'none';
                 document.getElementById('error').style.display = 'block';
-            });
+            }
+        }
+
+        // Start the initialization
+        init();
     </script>
 </body>
 </html>

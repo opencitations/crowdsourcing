@@ -107,6 +107,7 @@ def _validate_title(title: str) -> Tuple[bool, str]:
 def validate(
     issue_title: str,
     issue_body: str,
+    issue_number: str,
     validation_output_dir: str = "validation_output",
     validation_reports_dir: str = "docs/validation_reports",
 ) -> Tuple[bool, str]:
@@ -115,6 +116,7 @@ def validate(
     Args:
         issue_title: Title of the GitHub issue
         issue_body: Body content of the GitHub issue
+        issue_number: GitHub issue number to update
         validation_output_dir: Directory for temporary validation output files
         validation_reports_dir: Directory where validation reports will be stored
 
@@ -194,7 +196,7 @@ def validate(
 
         if has_meta_errors or has_cits_errors:
             # Generate HTML report for validation errors
-            report_filename = f"validation_{int(time.time())}.html"
+            report_filename = f"validation_issue_{issue_number}.html"
             report_path = f"{validation_reports_dir}/{report_filename}"
 
             # Generate metadata report if there were metadata errors
@@ -683,7 +685,7 @@ def process_open_issues() -> None:
             had_primary_source = issue["url"]
 
             print(f"Validating issue #{issue_number}")
-            is_valid, message = validate(issue_title, issue_body)
+            is_valid, message = validate(issue_title, issue_body, issue_number)
             print(
                 f"Validation result for #{issue_number}: valid={is_valid}, message={message}"
             )

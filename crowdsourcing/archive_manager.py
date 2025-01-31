@@ -17,17 +17,15 @@
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import requests
 import yaml
-from crowdsourcing.zenodo_utils import (
-    create_deposition_resource,
-    get_zenodo_base_url,
-    get_zenodo_token,
-)
+from crowdsourcing.zenodo_utils import (create_deposition_resource,
+                                        get_zenodo_base_url, get_zenodo_token)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -67,7 +65,7 @@ class ArchiveManager:
         """Initialize the index file if it doesn't exist."""
         index_data = {
             "github_reports": {},  # filename -> github_url
-            "zenodo_reports": {},  # filename -> zenodo_doi
+            "zenodo_reports": {},  # filename -> {"url": direct_file_url, "doi": doi_url}
             "last_archive": None,  # timestamp of last archive
         }
 
@@ -158,8 +156,18 @@ class ArchiveManager:
                 else f"on {first_report_date}"
             )
 
+            # Extract issue numbers from filenames
+            issue_numbers = []
+            for report in reports_to_archive:
+                match = re.search(r"validation_issue_(\d+)\.html", report)
+                if match:
+                    issue_numbers.append(int(match.group(1)))
+
+            min_issue = min(issue_numbers) if issue_numbers else 0
+            max_issue = max(issue_numbers) if issue_numbers else 0
+
             metadata["title"] = (
-                f"OpenCitations validation reports: {len(reports_to_archive)} reports {date_range}"
+                f"OpenCitations validation reports: issues #{min_issue} to #{max_issue} ({date_range})"
             )
             metadata["description"] = (
                 f"This deposit contains {len(reports_to_archive)} validation reports generated {date_range} to validate citation data and metadata submitted through GitHub issues in the OpenCitations crowdsourcing repository."
@@ -175,13 +183,14 @@ class ArchiveManager:
             # Upload reports to Zenodo
             for report in reports_to_archive:
                 report_path = os.path.join(self.reports_dir, report)
-                if not os.path.exists(report_path):
-                    logger.warning(f"Report file not found: {report_path}")
-                    continue
 
                 with open(report_path, "rb") as f:
+                    # Ensure the filename is a regular string, not bytes
+                    filename = (
+                        report.decode("utf-8") if isinstance(report, bytes) else report
+                    )
                     r = requests.put(
-                        f"{bucket_url}/{report}",
+                        f"{bucket_url}/{filename}",
                         data=f,
                         params={"access_token": get_zenodo_token()},
                     )
@@ -194,17 +203,20 @@ class ArchiveManager:
             )
             r.raise_for_status()
 
-            doi = r.json()["doi"]
+            response_data = r.json()
+            doi = response_data["doi"]
+            # Get the base URL for files (remove /api from base_url)
+            files_base_url = base_url.replace("/api", "")
 
             # Update index
             for report in reports_to_archive:
                 report_path = os.path.join(self.reports_dir, report)
-                if not os.path.exists(report_path):
-                    continue
-
                 # Move from github_reports to zenodo_reports
                 github_url = github_reports.pop(report)
-                index_data["zenodo_reports"][report] = f"https://doi.org/{doi}"
+                index_data["zenodo_reports"][report] = {
+                    "url": f"{files_base_url}/record/{deposition_id}/files/{report}",
+                    "doi": f"https://doi.org/{doi}",
+                }
                 # Delete the report file
                 os.remove(report_path)
 
@@ -232,8 +244,9 @@ class ArchiveManager:
         if report_filename in index_data["github_reports"]:
             return index_data["github_reports"][report_filename]
 
-        # Then check Zenodo
+        # Then check Zenodo - return direct URL if available
         if report_filename in index_data["zenodo_reports"]:
-            return index_data["zenodo_reports"][report_filename]
+            zenodo_data = index_data["zenodo_reports"][report_filename]
+            return zenodo_data["url"]  # Return direct URL as primary choice
 
         return None

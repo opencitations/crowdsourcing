@@ -135,6 +135,7 @@ class TestValidation(unittest.TestCase):
         is_valid, message = validate(
             title,
             body,
+            "123",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -152,6 +153,7 @@ WRONG_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "124",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -169,6 +171,7 @@ WRONG_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "125",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -186,6 +189,7 @@ WRONG_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "126",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -284,6 +288,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "127",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -318,6 +323,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "128",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -340,6 +346,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "129",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -366,6 +373,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "130",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -408,6 +416,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "131",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -450,6 +459,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "132",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -488,6 +498,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "133",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -517,6 +528,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "134",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -536,6 +548,7 @@ INVALID_SEPARATOR
         is_valid, message = validate(
             title,
             body,
+            "135",
             validation_output_dir=self.validation_output,
             validation_reports_dir=self.validation_reports,
         )
@@ -545,6 +558,46 @@ INVALID_SEPARATOR
         self.assertIn(
             "https://github.com/opencitations/crowdsourcing/blob/main/README.md",
             message,
+        )
+
+    def test_validation_report_issue_number(self):
+        """Test that validation report filename contains correct issue number"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","","","","","","","","invalid_type","",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","invalid_doi"\""""
+
+        test_issue_number = "42"
+
+        # Run validation
+        is_valid, message = validate(
+            title,
+            body,
+            test_issue_number,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
+
+        # Verify validation failed and generated a report
+        self.assertFalse(is_valid)
+
+        # Check that the report file exists with correct issue number
+        report_files = os.listdir(self.validation_reports)
+        matching_files = [
+            f
+            for f in report_files
+            if f.startswith(f"validation_issue_{test_issue_number}")
+        ]
+        self.assertEqual(
+            len(matching_files), 1, "Should find exactly one matching report file"
+        )
+        self.assertTrue(
+            matching_files[0].endswith(".html"), "Report file should be HTML"
+        )
+        self.assertEqual(
+            matching_files[0], f"validation_issue_{test_issue_number}.html"
         )
 
 
