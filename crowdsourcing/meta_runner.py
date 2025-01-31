@@ -218,6 +218,11 @@ def get_closed_issues() -> List[dict]:
                     {
                         "body": issue["body"],
                         "number": str(issue["number"]),
+                        "user": {
+                            "login": issue["user"]["login"],
+                            "html_url": issue["user"]["html_url"],
+                            "id": issue["user"]["id"],
+                        },
                     }
                     for issue in issues
                 ]
@@ -277,13 +282,14 @@ def process_single_issue(issue: dict, base_settings: dict) -> bool:
     # Get paths for current ingestion
     base_dir, metadata_dir, citations_dir = get_ingestion_dirs()
 
-    # Create issue-specific settings with issue URI as source
+    # Create issue-specific settings with issue URI as source and GitHub user as resp_agent
     issue_settings = base_settings.copy()
     issue_number = str(issue["number"])
     issue_settings.update(
         {
             "input_csv_dir": metadata_dir,
             "source": f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/issues/{issue_number}",
+            "resp_agent": f"https://api.github.com/user/{issue['user']['id']}",
         }
     )
 

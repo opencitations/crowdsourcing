@@ -415,7 +415,7 @@ def get_data_to_store(
             },
             "provenance": {
                 "generatedAtTime": created_at,
-                "wasAttributedTo": user_id,
+                "wasAttributedTo": f"https://api.github.com/user/{user_id}",
                 "hadPrimarySource": had_primary_source,
             },
         }

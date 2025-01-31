@@ -72,8 +72,24 @@ class TestMetaRunner(unittest.TestCase):
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = [
-            {"body": "test body 1", "number": 1},
-            {"body": "test body 2", "number": 2},
+            {
+                "body": "test body 1",
+                "number": 1,
+                "user": {
+                    "login": "test-user-1",
+                    "html_url": "https://github.com/test-user-1",
+                    "id": 12345,
+                },
+            },
+            {
+                "body": "test body 2",
+                "number": 2,
+                "user": {
+                    "login": "test-user-2",
+                    "html_url": "https://github.com/test-user-2",
+                    "id": 67890,
+                },
+            },
         ]
         mock_get.return_value = mock_response
 
@@ -84,6 +100,8 @@ class TestMetaRunner(unittest.TestCase):
         self.assertEqual(len(issues), 2)
         self.assertEqual(issues[0]["body"], "test body 1")
         self.assertEqual(issues[0]["number"], "1")
+        self.assertEqual(issues[0]["user"]["login"], "test-user-1")
+        self.assertEqual(issues[0]["user"]["id"], 12345)
 
         # Verify the API call
         mock_get.assert_called_once_with(
@@ -383,6 +401,11 @@ class TestMetaRunner(unittest.TestCase):
         issue = {
             "body": "id,title\n1,Test Title\n===###===@@@===citing,cited\n123,456",
             "number": "1",
+            "user": {
+                "login": "test-user",
+                "html_url": "https://github.com/test-user",
+                "id": 12345,
+            },
         }
         base_settings = {
             "triplestore_url": "http://example.com/sparql",
@@ -415,6 +438,11 @@ class TestMetaRunner(unittest.TestCase):
         issue = {
             "body": "id,title\n1,Test Title\n===###===@@@===citing,cited\n123,456",
             "number": "1",
+            "user": {
+                "login": "test-user",
+                "html_url": "https://github.com/test-user",
+                "id": 12345,
+            },
         }
         base_settings = {
             "triplestore_url": "http://example.com/sparql",
@@ -438,7 +466,15 @@ class TestMetaRunner(unittest.TestCase):
 
     def test_process_single_issue_invalid_issue(self):
         # Test with invalid issue data
-        issue = {"body": "Invalid issue body without separator", "number": "1"}
+        issue = {
+            "body": "Invalid issue body without separator",
+            "number": "1",
+            "user": {
+                "login": "test-user",
+                "html_url": "https://github.com/test-user",
+                "id": 12345,
+            },
+        }
         base_settings = {
             "triplestore_url": "http://example.com/sparql",
             "base_output_dir": "/mnt/arcangelo/meta_output_current",
@@ -465,6 +501,11 @@ class TestMetaRunner(unittest.TestCase):
         issue = {
             "body": "id,title\n1,Test Title\n===###===@@@===citing,cited\n123,456",
             "number": "1",
+            "user": {
+                "login": "test-user",
+                "html_url": "https://github.com/test-user",
+                "id": 12345,
+            },
         }
         base_settings = {
             "triplestore_url": "http://example.com/sparql",
@@ -484,6 +525,9 @@ class TestMetaRunner(unittest.TestCase):
             called_settings["source"],
             f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/issues/1",
         )
+        self.assertEqual(
+            called_settings["resp_agent"], "https://api.github.com/user/12345"
+        )
         self.assertEqual(called_settings["some_other_setting"], "value")
         self.assertTrue(called_settings["input_csv_dir"].endswith("metadata"))
 
@@ -494,6 +538,11 @@ class TestMetaRunner(unittest.TestCase):
         issue = {
             "body": "id,title\n1,Test Title\n===###===@@@===citing,cited\n123,456",
             "number": "1",
+            "user": {
+                "login": "test-user",
+                "html_url": "https://github.com/test-user",
+                "id": 12345,
+            },
         }
         base_settings = {
             "triplestore_url": "http://example.com/sparql",
@@ -623,6 +672,45 @@ class TestUpdateIssueLabels(unittest.TestCase):
         self.assertEqual(str(context.exception), "Network error")
         mock_delete.assert_called_once()
         mock_post.assert_called_once()
+
+    @patch("requests.delete")
+    @patch("requests.post")
+    @patch("crowdsourcing.meta_runner.logger.error")
+    def test_delete_label_non_200_response(
+        self, mock_log_error, mock_post, mock_delete
+    ):
+        """Test handling of non-200 response when deleting label."""
+        # Setup mocks
+        mock_delete.return_value.status_code = 404
+        mock_delete.return_value.text = "Label not found"
+        mock_post.return_value.status_code = 201
+
+        # Call function
+        update_issue_labels(self.issue_number, success=True)
+
+        # Verify error was logged
+        mock_log_error.assert_called_with(
+            "Error response from delete label: Label not found"
+        )
+
+        # Verify post was still called
+        mock_post.assert_called_once()
+
+    @patch("requests.delete")
+    @patch("requests.post")
+    @patch("crowdsourcing.meta_runner.logger.error")
+    def test_add_label_non_200_response(self, mock_log_error, mock_post, mock_delete):
+        """Test handling of non-200/201 response when adding label."""
+        # Setup mocks
+        mock_delete.return_value.status_code = 200
+        mock_post.return_value.status_code = 422
+        mock_post.return_value.text = "Validation failed"
+
+        # Call function
+        update_issue_labels(self.issue_number, success=True)
+
+        # Verify error was logged
+        mock_log_error.assert_called_with("Error adding label: Validation failed")
 
 
 class TestProcessMetaIssues(unittest.TestCase):
