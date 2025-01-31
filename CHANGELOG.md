@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/opencitations/crowdsourcing/compare/v1.1.0...v1.1.1) (2025-01-31)
+
+### Bug Fixes
+
+* update Content-Type header for Zenodo file uploads ([c00e086](https://github.com/opencitations/crowdsourcing/commit/c00e0865c845100fdca0fb97c0f301f1502dac52))
+
 ## [1.1.0](https://github.com/opencitations/crowdsourcing/compare/v1.0.2...v1.1.0) (2025-01-31)
 
 ### Features
