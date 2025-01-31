@@ -104,12 +104,19 @@ def _validate_title(title: str) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
+def validate(
+    issue_title: str,
+    issue_body: str,
+    validation_output_dir: str = "validation_output",
+    validation_reports_dir: str = "docs/validation_reports",
+) -> Tuple[bool, str]:
     """Validate issue title and body content using oc_validator.
 
     Args:
         issue_title: Title of the GitHub issue
         issue_body: Body content of the GitHub issue
+        validation_output_dir: Directory for temporary validation output files
+        validation_reports_dir: Directory where validation reports will be stored
 
     Returns:
         Tuple containing:
@@ -145,8 +152,8 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
 
     try:
         logger.info("Creating validation output directory")
-        os.makedirs("validation_output", exist_ok=True)
-        os.makedirs("docs/validation_reports", exist_ok=True)
+        os.makedirs(validation_output_dir, exist_ok=True)
+        os.makedirs(validation_reports_dir, exist_ok=True)
 
         # Split the data into metadata and citations
         split_data = issue_body.split("===###===@@@===")
@@ -162,9 +169,9 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
         # Initialize and run validator
         validator = ClosureValidator(
             meta_csv_doc="temp_metadata.csv",
-            meta_output_dir="validation_output",
+            meta_output_dir=validation_output_dir,
             cits_csv_doc="temp_citations.csv",
-            cits_output_dir="validation_output",
+            cits_output_dir=validation_output_dir,
             strict_sequenciality=True,
             meta_kwargs={"verify_id_existence": True},
             cits_kwargs={"verify_id_existence": True},
@@ -175,46 +182,48 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
 
         # Check if there are any validation errors
         has_meta_errors = (
-            os.path.exists("validation_output/meta_validation_summary.txt")
-            and os.path.getsize("validation_output/meta_validation_summary.txt") > 0
+            os.path.exists(f"{validation_output_dir}/meta_validation_summary.txt")
+            and os.path.getsize(f"{validation_output_dir}/meta_validation_summary.txt")
+            > 0
         )
         has_cits_errors = (
-            os.path.exists("validation_output/cits_validation_summary.txt")
-            and os.path.getsize("validation_output/cits_validation_summary.txt") > 0
+            os.path.exists(f"{validation_output_dir}/cits_validation_summary.txt")
+            and os.path.getsize(f"{validation_output_dir}/cits_validation_summary.txt")
+            > 0
         )
 
         if has_meta_errors or has_cits_errors:
             # Generate HTML report for validation errors
             report_filename = f"validation_{int(time.time())}.html"
-            report_path = f"docs/validation_reports/{report_filename}"
+            report_path = f"{validation_reports_dir}/{report_filename}"
 
             # Generate metadata report if there were metadata errors
             if has_meta_errors:
                 make_gui(
                     "temp_metadata.csv",
-                    "validation_output/out_validate_meta.json",
-                    "validation_output/meta_report.html",
+                    f"{validation_output_dir}/out_validate_meta.json",
+                    f"{validation_output_dir}/meta_report.html",
                 )
 
             # Generate citations report if there were citation errors
             if has_cits_errors:
                 make_gui(
                     "temp_citations.csv",
-                    "validation_output/out_validate_cits.json",
-                    "validation_output/cits_report.html",
+                    f"{validation_output_dir}/out_validate_cits.json",
+                    f"{validation_output_dir}/cits_report.html",
                 )
 
             # Merge reports if both exist, otherwise copy the single report
             if has_meta_errors and has_cits_errors:
                 merge_html_files(
-                    "validation_output/meta_report.html",
-                    "validation_output/cits_report.html",
+                    f"{validation_output_dir}/meta_report.html",
+                    f"{validation_output_dir}/cits_report.html",
                     report_path,
                 )
             elif has_meta_errors:
-                shutil.copy("validation_output/meta_report.html", report_path)
+                shutil.copy(f"{validation_output_dir}/meta_report.html", report_path)
             else:  # has_cits_errors
-                shutil.copy("validation_output/cits_report.html", report_path)
+                shutil.copy(f"{validation_output_dir}/cits_report.html", report_path)
 
             # Get repository from environment and construct report URL
             repository = os.environ["GITHUB_REPOSITORY"]
@@ -257,8 +266,8 @@ def validate(issue_title: str, issue_body: str) -> Tuple[bool, str]:
             if os.path.exists(file):
                 os.remove(file)
 
-        if os.path.exists("validation_output"):
-            shutil.rmtree("validation_output")
+        if os.path.exists(validation_output_dir):
+            shutil.rmtree(validation_output_dir)
 
 
 def answer(

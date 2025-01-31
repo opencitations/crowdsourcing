@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenCitations Validation Report Redirect</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        .error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 20px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="error" class="error" style="display: none">
+        Report not found. Please check the URL and try again.
+    </div>
+
+    <script>
+        // Function to get URL parameters
+        function getUrlParameter(name) {
+            name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
+            var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
+            var results = regex.exec(location.search);
+            return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
+        }
+
+        // Main initialization
+        fetch('index.json')
+            .then(response => response.json())
+            .then(data => {
+                const redirectTo = getUrlParameter('report');
+                if (redirectTo) {
+                    const githubUrl = data.github_reports[redirectTo];
+                    const zenodoUrl = data.zenodo_reports[redirectTo];
+                    if (githubUrl) {
+                        window.location.href = githubUrl;
+                        return;
+                    } else if (zenodoUrl) {
+                        window.location.href = zenodoUrl;
+                        return;
+                    }
+                }
+                // Show error if no valid redirection
+                document.getElementById('error').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error loading report data:', error);
+                document.getElementById('error').style.display = 'block';
+            });
+    </script>
+</body>
+</html>

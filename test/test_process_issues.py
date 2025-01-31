@@ -98,14 +98,13 @@ class TestTitleValidation(unittest.TestCase):
 class TestValidation(unittest.TestCase):
     def setUp(self):
         """Set up test environment before each test"""
-        # Clean up any existing test directories
-        for path in ["validation_output", "docs/validation_reports"]:
-            if os.path.exists(path):
-                shutil.rmtree(path)
+        # Create temporary test directory
+        self.test_dir = os.path.join(os.path.dirname(__file__), "temp_test_dir")
+        self.validation_output = os.path.join(self.test_dir, "validation_output")
+        self.validation_reports = os.path.join(self.test_dir, "validation_reports")
 
-        # Create required directories
-        os.makedirs("validation_output", exist_ok=True)
-        os.makedirs("docs/validation_reports", exist_ok=True)
+        os.makedirs(self.validation_output, exist_ok=True)
+        os.makedirs(self.validation_reports, exist_ok=True)
 
         # Setup environment variables
         self.env_patcher = patch.dict(
@@ -116,13 +115,12 @@ class TestValidation(unittest.TestCase):
 
     def tearDown(self):
         """Clean up after each test"""
-        # Clean up test directories - ignore errors if already deleted
-        for path in ["validation_output", "docs/validation_reports"]:
-            if os.path.exists(path):
-                shutil.rmtree(path)
-
         # Stop environment patcher
         self.env_patcher.stop()
+
+        # Clean up test directory
+        if os.path.exists(self.test_dir):
+            shutil.rmtree(self.test_dir)
 
     def test_valid_issue(self):
         """Test that a valid issue with correct title and CSV data is accepted"""
@@ -134,7 +132,12 @@ class TestValidation(unittest.TestCase):
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-662-07918-8_3"
 "doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(73)90147-2\""""
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
         self.assertTrue(is_valid)
         self.assertIn("Thank you for your contribution", message)
 
@@ -146,7 +149,12 @@ class TestValidation(unittest.TestCase):
 WRONG_SEPARATOR
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-662-07918-8_3\""""
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
         self.assertFalse(is_valid)
         self.assertIn("Please use the separator", message)
 
@@ -158,7 +166,12 @@ WRONG_SEPARATOR
 ===###===@@@===
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-662-07918-8_3\""""
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
         self.assertFalse(is_valid)
         self.assertIn("title of the issue was not structured correctly", message)
 
@@ -170,7 +183,12 @@ WRONG_SEPARATOR
 ===###===@@@===
 "wrong","citation","headers"
 "cite1","cite2","cite3"\""""
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
         self.assertFalse(is_valid)
         self.assertIn(
             "Please ensure both metadata and citations are valid CSVs following the required format.",
@@ -262,20 +280,21 @@ INVALID_SEPARATOR
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","invalid_doi\""""
 
-        # Create required directories
-        os.makedirs("validation_output", exist_ok=True)
-        os.makedirs("docs/validation_reports", exist_ok=True)
-
         # Run validation
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         # Verify validation failed
         self.assertFalse(is_valid)
         self.assertIn("Validation errors found in", message)
         self.assertIn("metadata and citations", message)
 
-        # Verify final report was generated in docs/validation_reports
-        report_files = os.listdir("docs/validation_reports")
+        # Verify final report was generated in validation_reports
+        report_files = os.listdir(self.validation_reports)
         self.assertTrue(
             any(
                 f.startswith("validation_") and f.endswith(".html")
@@ -296,7 +315,12 @@ INVALID_SEPARATOR
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\""""
 
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         self.assertFalse(is_valid)
         self.assertIn("Error validating data", message)
@@ -313,7 +337,12 @@ INVALID_SEPARATOR
 "citing_id","cited_id"
 "invalid:123","another:456"\""""
 
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         self.assertFalse(is_valid)
         self.assertIn("Error validating data", message)
@@ -333,12 +362,13 @@ INVALID_SEPARATOR
 "doi:10.1007/s42835-022-01029-y","invalid_doi"
 "doi:10.1162/qss_a_00292","doi:10.1007/s42835-022-01029-y"\""""
 
-        # Create required directories
-        os.makedirs("validation_output", exist_ok=True)
-        os.makedirs("docs/validation_reports", exist_ok=True)
-
         # Run validation
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         # Verify validation failed
         self.assertFalse(is_valid)
@@ -350,8 +380,8 @@ INVALID_SEPARATOR
         )
         self.assertIn(".html", message)
 
-        # Verify final report was generated in docs/validation_reports
-        report_files = os.listdir("docs/validation_reports")
+        # Verify final report was generated in validation_reports
+        report_files = os.listdir(self.validation_reports)
         self.assertTrue(
             any(
                 f.startswith("validation_") and f.endswith(".html")
@@ -375,13 +405,18 @@ INVALID_SEPARATOR
 "INVALID_DOI","doi:10.1007/978-3-030-00668-6_8\""""
 
         # Run validation
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         # Verify validation failed
         self.assertFalse(is_valid)
 
-        # Check that merged report exists in docs/validation_reports
-        report_files = os.listdir("docs/validation_reports")
+        # Check that merged report exists in validation_reports
+        report_files = os.listdir(self.validation_reports)
         self.assertTrue(
             any(
                 f.startswith("validation_") and f.endswith(".html")
@@ -412,14 +447,19 @@ INVALID_SEPARATOR
 "doi:10.1007/s42835-022-01029-y","doi:10.1162/qss_a_00292\""""
 
         # Run validation
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         # Verify validation failed
         self.assertFalse(is_valid)
 
         # Check that final report exists
         report_files = [
-            f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
+            f for f in os.listdir(self.validation_reports) if f.endswith(".html")
         ]
         self.assertEqual(len(report_files), 1, "Should be exactly one final report")
         final_report = report_files[0]
@@ -445,14 +485,19 @@ INVALID_SEPARATOR
 "INVALID_DOI","ANOTHER_INVALID_DOI"\""""
 
         # Run validation
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         # Verify validation failed
         self.assertFalse(is_valid)
 
         # Check that final report exists
         report_files = [
-            f for f in os.listdir("docs/validation_reports") if f.endswith(".html")
+            f for f in os.listdir(self.validation_reports) if f.endswith(".html")
         ]
         self.assertEqual(len(report_files), 1, "Should be exactly one final report")
         final_report = report_files[0]
@@ -469,7 +514,12 @@ INVALID_SEPARATOR
         title = "deposit journal.com doi:10.1162/qss_a_00292"
         body = None
 
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         self.assertFalse(is_valid)
         self.assertIn("The issue body cannot be empty", message)
@@ -483,7 +533,12 @@ INVALID_SEPARATOR
         title = "deposit journal.com doi:10.1162/qss_a_00292"
         body = ""
 
-        is_valid, message = validate(title, body)
+        is_valid, message = validate(
+            title,
+            body,
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
 
         self.assertFalse(is_valid)
         self.assertIn("The issue body cannot be empty", message)
