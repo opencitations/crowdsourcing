@@ -1,3 +1,9 @@
+## [1.2.1](https://github.com/opencitations/crowdsourcing/compare/v1.2.0...v1.2.1) (2025-01-31)
+
+### Bug Fixes
+
+* ensure publication_date is correctly set in Zenodo metadata ([48e05d8](https://github.com/opencitations/crowdsourcing/commit/48e05d8c3e7a712ff8321732d5b5684f03caa87f))
+
 ## [1.2.0](https://github.com/opencitations/crowdsourcing/compare/v1.1.2...v1.2.0) (2025-01-31)
 
 ### Features
