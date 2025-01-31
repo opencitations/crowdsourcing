@@ -147,7 +147,6 @@ class ArchiveManager:
                         f"{bucket_url}/{report}",
                         data=f,
                         params={"access_token": get_zenodo_token()},
-                        headers={"Content-Type": "application/html"},
                     )
                     r.raise_for_status()
 
