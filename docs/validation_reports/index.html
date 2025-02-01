@@ -54,6 +54,48 @@
             }
         }
 
+        // Function to get Zenodo record URL from API URL
+        function getRecordUrl(apiUrl) {
+            const match = apiUrl.match(/\/api\/records\/(\d+)\//);
+            if (match) {
+                const recordId = match[1];
+                return apiUrl.split('/api/')[0] + '/record/' + recordId;
+            }
+            return null;
+        }
+
+        // Function to trigger file download and then redirect
+        async function downloadFileAndRedirect(url, filename) {
+            try {
+                // First download the file
+                const response = await fetch(url);
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(downloadUrl);
+
+                // Get record URL and redirect
+                const recordUrl = getRecordUrl(url);
+                if (recordUrl) {
+                    // Redirect to record page without checking accessibility
+                    window.location.href = recordUrl;
+                    return;
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                // If anything fails, fallback to DOI
+                const zenodoData = data.zenodo_reports[redirectTo];
+                if (zenodoData && zenodoData.doi) {
+                    window.location.href = zenodoData.doi;
+                }
+            }
+        }
+
         // Main initialization
         async function init() {
             const loadingDiv = document.getElementById('loading');
@@ -77,7 +119,7 @@
                     if (zenodoData) {
                         // Try direct URL first
                         if (await isUrlAccessible(zenodoData.url)) {
-                            window.location.href = zenodoData.url;
+                            await downloadFileAndRedirect(zenodoData.url, redirectTo);
                             return;
                         }
                         // Fallback to DOI if direct URL is not accessible

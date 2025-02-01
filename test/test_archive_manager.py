@@ -143,7 +143,9 @@ class TestArchiveManager(unittest.TestCase):
         self.assertTrue(
             all(
                 report_data["doi"].startswith("https://doi.org/")
-                and report_data["url"].startswith("https://sandbox.zenodo.org/record/")
+                and report_data["url"].startswith(
+                    "https://sandbox.zenodo.org/api/records/"
+                )
                 for report_data in index_data["zenodo_reports"].values()
             )
         )

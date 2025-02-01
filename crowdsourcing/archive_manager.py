@@ -24,8 +24,11 @@ from typing import Optional
 
 import requests
 import yaml
-from crowdsourcing.zenodo_utils import (create_deposition_resource,
-                                        get_zenodo_base_url, get_zenodo_token)
+from crowdsourcing.zenodo_utils import (
+    create_deposition_resource,
+    get_zenodo_base_url,
+    get_zenodo_token,
+)
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -184,13 +187,9 @@ class ArchiveManager:
             for report in reports_to_archive:
                 report_path = os.path.join(self.reports_dir, report)
 
-                with open(report_path, "rb") as f:
-                    # Ensure the filename is a regular string, not bytes
-                    filename = (
-                        report.decode("utf-8") if isinstance(report, bytes) else report
-                    )
+                with open(report_path, "r", encoding="utf-8") as f:
                     r = requests.put(
-                        f"{bucket_url}/{filename}",
+                        f"{bucket_url}/{report}",
                         data=f,
                         params={"access_token": get_zenodo_token()},
                     )
@@ -206,7 +205,7 @@ class ArchiveManager:
             response_data = r.json()
             doi = response_data["doi"]
             # Get the base URL for files (remove /api from base_url)
-            files_base_url = base_url.replace("/api", "")
+            files_base_url = base_url
 
             # Update index
             for report in reports_to_archive:
@@ -214,7 +213,7 @@ class ArchiveManager:
                 # Move from github_reports to zenodo_reports
                 github_url = github_reports.pop(report)
                 index_data["zenodo_reports"][report] = {
-                    "url": f"{files_base_url}/record/{deposition_id}/files/{report}",
+                    "url": f"{files_base_url}/records/{deposition_id}/files/{report}/content",
                     "doi": f"https://doi.org/{doi}",
                 }
                 # Delete the report file
