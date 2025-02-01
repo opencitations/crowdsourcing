@@ -1,6 +1,5 @@
 validation_reports:
   max_reports_before_archive: 2  # Maximum number of reports before triggering archival
-  archive_batch_size: 50  # How many reports to archive at once on Zenodo
   reports_dir: "docs/validation_reports"  # Directory containing the reports
   index_file: "docs/validation_reports/index.json"  # Mapping file for redirections
 

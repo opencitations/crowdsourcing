@@ -103,13 +103,6 @@ class ArchiveManager:
         index_data["github_reports"][report_filename] = github_url
         self._save_index(index_data)
 
-        # Check if we need to archive
-        if (
-            len(index_data["github_reports"])
-            >= self.config["validation_reports"]["max_reports_before_archive"]
-        ):
-            self.archive_reports()
-
     def archive_reports(self) -> Optional[str]:
         """Archive reports to Zenodo when threshold is reached.
 
@@ -119,15 +112,15 @@ class ArchiveManager:
         index_data = self._load_index()
         github_reports = index_data["github_reports"]
 
-        # Get reports to archive (oldest first)
+        # Get all reports to archive
         reports_to_archive = sorted(
             github_reports.keys(),
             key=lambda x: (
                 os.path.getctime(os.path.join(self.reports_dir, x))
                 if os.path.exists(os.path.join(self.reports_dir, x))
                 else 0
-            ),  # Use 0 as timestamp for non-existent files
-        )[: self.config["validation_reports"]["archive_batch_size"]]
+            ),
+        )
 
         if not reports_to_archive:
             return None
@@ -135,7 +128,7 @@ class ArchiveManager:
         try:
             # Create Zenodo deposition
             base_url = get_zenodo_base_url()
-            date = datetime.now().strftime("%Y-%m-%d")  # Solo la data senza ora
+            date = datetime.now().strftime("%Y-%m-%d")
             metadata = self.config["zenodo"]["metadata_template"].copy()
 
             # Create a meaningful title with number of reports and date range
@@ -175,7 +168,7 @@ class ArchiveManager:
             metadata["description"] = (
                 f"This deposit contains {len(reports_to_archive)} validation reports generated {date_range} to validate citation data and metadata submitted through GitHub issues in the OpenCitations crowdsourcing repository."
             )
-            metadata["publication_date"] = date  # Settiamo la data qui
+            metadata["publication_date"] = date
 
             deposition_id, bucket_url = create_deposition_resource(
                 date=date,
@@ -249,3 +242,15 @@ class ArchiveManager:
             return zenodo_data["url"]  # Return direct URL as primary choice
 
         return None
+
+    def needs_archival(self) -> bool:
+        """Check if reports need to be archived based on configuration threshold.
+
+        Returns:
+            bool: True if number of reports exceeds threshold, False otherwise
+        """
+        index_data = self._load_index()
+        return (
+            len(index_data["github_reports"])
+            >= self.config["validation_reports"]["max_reports_before_archive"]
+        )

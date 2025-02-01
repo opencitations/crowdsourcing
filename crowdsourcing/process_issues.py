@@ -713,8 +713,6 @@ def process_open_issues() -> None:
             except Exception as e:
                 print(f"ERROR: Failed to deposit data to Zenodo: {e}")
                 raise
-        else:
-            print("No valid data to deposit to Zenodo")
 
     except Exception as e:
         print(f"ERROR: Processing issues: {e}")

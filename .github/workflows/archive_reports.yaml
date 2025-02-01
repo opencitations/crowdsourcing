@@ -1,12 +1,12 @@
-name: Issues manager
+name: Archive validation reports
 on:
-  issues:
-    types: [opened, edited]
+  workflow_run:
+    workflows: ["Issues manager"]
+    types:
+      - completed
 
 jobs:
-  Validate:
-    # Run only when the issue has the 'deposit' label
-    if: contains(github.event.issue.labels.*.name, 'deposit')
+  Archive:
     runs-on: ubuntu-22.04
     permissions:
       contents: write  # Add write permission to commit and push
@@ -34,5 +34,15 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --only main
         
-      - name: Process the issue
-        run: poetry run python3 crowdsourcing/process_issues.py
+      - name: Check and archive reports
+        run: poetry run python3 crowdsourcing/archive_reports.py
+
+      # Update index.json after archival
+      - name: Commit changes
+        if: always()  # Run even if previous steps fail
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add docs/validation_reports/index.json
+          git commit -m "chore: update validation reports index" || echo "No changes to commit"
+          git push || echo "No changes to push" 

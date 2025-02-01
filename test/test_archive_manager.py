@@ -39,7 +39,6 @@ class TestArchiveManager(unittest.TestCase):
         self.config = {
             "validation_reports": {
                 "max_reports_before_archive": 3,
-                "archive_batch_size": 2,
                 "reports_dir": self.reports_dir,
                 "index_file": os.path.join(self.reports_dir, "index.json"),
             },
@@ -133,13 +132,23 @@ class TestArchiveManager(unittest.TestCase):
                 f.write(f"Test report {i}")
             self.manager.add_report(report_name, f"https://example.com/{report_name}")
 
-        # Archive should be triggered after 4th report (max is 3)
+        # Check that all reports are in github_reports
         with open(self.manager.index_path) as f:
             index_data = json.load(f)
+        self.assertEqual(len(index_data["github_reports"]), 4)
+        self.assertEqual(len(index_data["zenodo_reports"]), 0)
 
-        # Verify that 2 oldest reports were archived (batch_size is 2)
-        self.assertEqual(len(index_data["github_reports"]), 2)
-        self.assertEqual(len(index_data["zenodo_reports"]), 2)
+        # Verify that archival is needed
+        self.assertTrue(self.manager.needs_archival())
+
+        # Explicitly trigger archival
+        self.manager.archive_reports()
+
+        # Verify that all reports were archived
+        with open(self.manager.index_path) as f:
+            index_data = json.load(f)
+        self.assertEqual(len(index_data["github_reports"]), 0)
+        self.assertEqual(len(index_data["zenodo_reports"]), 4)
         self.assertTrue(
             all(
                 report_data["doi"].startswith("https://doi.org/")
