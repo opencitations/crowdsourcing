@@ -5,9 +5,9 @@ on:
     types:
       - completed
 
-# Ensure only one archive job runs at a time
+# Ensure only one job runs at a time when modifying validation reports
 concurrency: 
-  group: archive-reports
+  group: validation-reports
   cancel-in-progress: false
 
 jobs:
