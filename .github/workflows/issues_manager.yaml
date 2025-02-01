@@ -3,13 +3,13 @@ on:
   issues:
     types: [opened, edited]
 
-# Ensure only one issue processing job runs at a time
+# Ensure only one issue is processed at a time
 concurrency: 
-  group: validation-reports
+  group: issue-processing
   cancel-in-progress: false
 
 jobs:
-  Validate:
+  Process:
     # Run only when the issue has the 'deposit' label
     if: contains(github.event.issue.labels.*.name, 'deposit')
     runs-on: ubuntu-22.04
@@ -39,57 +39,24 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --only main
         
-      - name: Process the issue
+      - name: Process and validate the issue
         run: poetry run python3 crowdsourcing/process_issues.py
 
-      - name: Commit and push index changes
+      - name: Commit validation changes
         run: |
           git config --global user.name "crocibot"
           git config --global user.email "contact@opencitations.net"
-          
-          # Try to commit and push up to 3 times
-          max_attempts=3
-          attempt=1
-          
-          while [ $attempt -le $max_attempts ]; do
-            echo "Attempt $attempt of $max_attempts"
-            
-            # Add files first
-            git add docs/validation_reports/
-            
-            # Stash any changes
-            git stash push -m "temporary stash"
-            
-            # Pull latest changes with rebase
-            git pull --rebase origin main
-            
-            # Pop stashed changes
-            git stash pop
-            
-            # Check if there are changes to commit
-            if ! git diff --quiet || ! git diff --staged --quiet; then
-              git commit -m "chore: update validation reports [skip ci]"
-              
-              if git push; then
-                echo "Successfully pushed changes on attempt $attempt"
-                break
-              fi
-            else
-              echo "No changes to commit"
-              break
-            fi
-            
-            # If push failed and we have more attempts, wait and retry
-            if [ $attempt -lt $max_attempts ]; then
-              echo "Push failed, waiting before retry..."
-              sleep $((attempt * 5))
-            fi
-            
-            attempt=$((attempt + 1))
-          done
-          
-          # If all attempts failed, fail the workflow
-          if [ $attempt -gt $max_attempts ]; then
-            echo "Failed to push changes after $max_attempts attempts"
-            exit 1
-          fi
+          git add docs/validation_reports/
+          git pull --rebase origin main
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update validation reports [skip ci]" && git push)
+
+      - name: Archive reports
+        run: poetry run python3 crowdsourcing/archive_reports.py
+
+      - name: Commit archive changes
+        run: |
+          git config --global user.name "crocibot"
+          git config --global user.email "contact@opencitations.net"
+          git add -A docs/validation_reports/
+          git pull --rebase origin main
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: archive validation reports" && git push)
