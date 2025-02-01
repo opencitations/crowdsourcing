@@ -1356,13 +1356,13 @@ zstandard = ">=0.21.0,<0.22.0"
 
 [[package]]
 name = "oc-meta"
-version = "2.1.0"
+version = "2.1.1"
 description = "OpenCitations Meta contains bibliographic metadata associated with the documents involved in the citations stored in the OpenCitations infrastructure. The OpenCitations Meta Software performs two main actions: a data curation of the provided CSV files and the generation of new RDF files compliant with the OpenCitations Data Model."
 optional = false
 python-versions = "<3.14,>=3.10"
 files = [
-    {file = "oc_meta-2.1.0-py3-none-any.whl", hash = "sha256:8b627677bff2d551add5664e9f26da80b131de4dee66ebcc02effe22d1f8a92b"},
-    {file = "oc_meta-2.1.0.tar.gz", hash = "sha256:9af70ada51fc182d81d6e6997959435614be2165a08185a3e8ff9b5275f27427"},
+    {file = "oc_meta-2.1.1-py3-none-any.whl", hash = "sha256:34429b3794317d9826fc22d252b2717da2df91428b84afd85aa3a89df05abfe4"},
+    {file = "oc_meta-2.1.1.tar.gz", hash = "sha256:34f08d5ffbed05bad0cb65548cff6aeeac0d248fcc56e3f99af0d80cdf92906e"},
 ]
 
 [package.dependencies]
@@ -2777,4 +2777,4 @@ cffi = ["cffi (>=1.11)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "<3.14,>=3.10"
-content-hash = "93941e0ebfdb808e2986c8a013ed9a2ee058f209994b2b258399203e145efa36"
+content-hash = "6fbe69233e60ab16048aac748e55cefe1dcfa4612e851067aee478fc4ab5b9e4"
