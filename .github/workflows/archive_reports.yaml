@@ -56,10 +56,17 @@ jobs:
           while [ $attempt -le $max_attempts ]; do
             echo "Attempt $attempt of $max_attempts"
             
+            # Add files first
+            git add -A docs/validation_reports/  # Track all changes including deletions
+            
+            # Stash any changes
+            git stash push -m "temporary stash"
+            
             # Pull latest changes with rebase
             git pull --rebase origin main
             
-            git add -A docs/validation_reports/  # Track all changes including deletions
+            # Pop stashed changes
+            git stash pop
             
             # Check if there are changes to commit
             if ! git diff --quiet || ! git diff --staged --quiet; then
