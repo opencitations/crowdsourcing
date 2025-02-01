@@ -1,3 +1,9 @@
+## [1.4.10](https://github.com/opencitations/crowdsourcing/compare/v1.4.9...v1.4.10) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** add change detection before committing validation reports ([77647c8](https://github.com/opencitations/crowdsourcing/commit/77647c8b5e2d1c070054610d5f175a4a7f24fdf8))
+
 ## [1.4.9](https://github.com/opencitations/crowdsourcing/compare/v1.4.8...v1.4.9) (2025-02-01)
 
 ### Bug Fixes
