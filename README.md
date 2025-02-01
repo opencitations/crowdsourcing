@@ -12,7 +12,7 @@ In this repository, trusted agents can deposit citations and bibliographic metad
 
 The following diagram illustrates the complete workflow of the crowdsourcing process:
 
-![OpenCitations Crowdsourcing Workflow](docs/workflow.png)
+![OpenCitations Crowdsourcing Workflow](docs/oc_crowdsourcing_workflow.svg)
 
 ## How to make a deposit
 

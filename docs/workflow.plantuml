@@ -2,27 +2,77 @@
 !theme cerulean-outline
 
 skinparam backgroundColor white
-skinparam handwritten false
 skinparam defaultFontName Arial
 skinparam actorStyle awesome
 skinparam participantPadding 20
 skinparam boxPadding 10
+skinparam stereotypeFontColor #000080
 
 ' Custom styles
 skinparam sequence {
-    ArrowColor #2D22DE
-    ActorBorderColor #2D22DE
-    LifeLineBorderColor #9931FC
-    ParticipantBorderColor #2D22DE
-    ParticipantBackgroundColor #F0F0FF
-    BoxBorderColor #2D22DE
+    ArrowColor #000080
+    ActorBorderColor #000080
+    LifeLineBorderColor #000080
+    ParticipantBorderColor #000080
+    ParticipantBackgroundColor white
+    BoxBorderColor #000080
+    ParticipantFontColor #000080
+    ActorFontColor #000080
+    DatabaseFontColor #000080
+    DatabaseStereotypeFontColor #000080
 }
 
-actor "Trusted Agent" as User #9931FC
-participant GitHub #2D22DE
-participant "CSV Validator" as Validator #4B0082
-database "OpenCitations\nIndex/Meta" as OC #9931FC
-database Zenodo #FF6B6B
+' Participants with better contrast
+actor "Trusted Agent" as User
+participant GitHub
+participant "CSV Validator" as Validator
+database "<color:#000080>OpenCitations</color>\n<color:#000080>Index/Meta</color>" as OC #000080/white
+database "<color:#000080>Zenodo</color>" as Zenodo #000080/white
+
+' Custom colors for better readability
+skinparam actor {
+    BackgroundColor white
+    BorderColor #000080
+    FontColor #000080
+    StereotypeFontColor #000080
+}
+
+skinparam participant {
+    BackgroundColor white
+    BorderColor #000080
+    FontColor #000080
+    StereotypeFontColor #000080
+}
+
+skinparam database {
+    BackgroundColor white
+    BorderColor #000080
+    FontColor #000080
+    StereotypeFontColor #000080
+    FontStyle bold
+}
+
+skinparam databaseBackgroundColor white
+skinparam databaseFontColor #000080
+skinparam databaseBorderColor #000080
+
+skinparam note {
+    BackgroundColor #ECECFD
+    BorderColor #000080
+    FontColor black
+}
+
+skinparam group {
+    BackgroundColor white
+    BorderColor #000080
+    FontColor #000080
+}
+
+skinparam title {
+    FontColor #000080
+    FontSize 20
+    BorderColor #000080
+}
 
 title Crowdsourcing Workflow for OpenCitations
 
