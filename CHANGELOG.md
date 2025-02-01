@@ -1,3 +1,9 @@
+## [1.4.9](https://github.com/opencitations/crowdsourcing/compare/v1.4.8...v1.4.9) (2025-02-01)
+
+### Bug Fixes
+
+* ensure proper staging after stash operations in workflow ([49c2907](https://github.com/opencitations/crowdsourcing/commit/49c290702afabc75dfda05d38d3bba99c31158a1))
+
 ## [1.4.8](https://github.com/opencitations/crowdsourcing/compare/v1.4.7...v1.4.8) (2025-02-01)
 
 ### Bug Fixes
