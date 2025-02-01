@@ -1,3 +1,9 @@
+## [1.4.7](https://github.com/opencitations/crowdsourcing/compare/v1.4.6...v1.4.7) (2025-02-01)
+
+### Bug Fixes
+
+* **workflows:** merge archive functionality into issues manager ([27dba9c](https://github.com/opencitations/crowdsourcing/commit/27dba9c6a5ea5da6473a59ee23c8b97b55008d60))
+
 ## [1.4.6](https://github.com/opencitations/crowdsourcing/compare/v1.4.5...v1.4.6) (2025-02-01)
 
 ### Bug Fixes
