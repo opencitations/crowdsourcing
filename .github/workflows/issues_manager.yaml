@@ -50,8 +50,12 @@ jobs:
       - name: Commit validation changes
         run: |
           git add docs/validation_reports/
-          git commit -m "chore: update validation reports [skip ci]"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update validation reports [skip ci]"
+            git push
+          fi
 
       - name: Archive reports
         run: poetry run python3 crowdsourcing/archive_reports.py
@@ -59,5 +63,9 @@ jobs:
       - name: Commit archive changes
         run: |
           git add docs/validation_reports/
-          git commit -m "chore: archive validation reports"
-          git push
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: archive validation reports"
+            git push
+          fi
