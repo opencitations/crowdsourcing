@@ -36,3 +36,10 @@ jobs:
         
       - name: Process the issue
         run: poetry run python3 crowdsourcing/process_issues.py
+
+      - name: Commit and push index changes
+        run: |
+          git config --global user.name "crocibot"
+          git config --global user.email "contact@opencitations.net"
+          git add docs/validation_reports/index.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update validation reports index [skip ci]" && git push)
