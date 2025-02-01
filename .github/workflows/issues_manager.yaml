@@ -45,34 +45,19 @@ jobs:
         run: poetry install --no-interaction --only main
         
       - name: Process and validate the issue
-        id: process
         run: poetry run python3 crowdsourcing/process_issues.py
 
-      - name: Check for changes
-        id: check_changes
+      - name: Commit validation changes
         run: |
           git add docs/validation_reports/
-          if ! git diff --cached --quiet; then
-            echo "has_changes=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_changes=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit validation changes
-        if: steps.check_changes.outputs.has_changes == 'true'
-        run: |
-          git pull --rebase origin main
           git commit -m "chore: update validation reports [skip ci]"
           git push
 
       - name: Archive reports
-        if: steps.check_changes.outputs.has_changes == 'true'
         run: poetry run python3 crowdsourcing/archive_reports.py
 
       - name: Commit archive changes
-        if: steps.check_changes.outputs.has_changes == 'true'
         run: |
           git add docs/validation_reports/
-          git pull --rebase origin main
           git commit -m "chore: archive validation reports"
           git push
