@@ -1,3 +1,9 @@
+## [1.4.11](https://github.com/opencitations/crowdsourcing/compare/v1.4.10...v1.4.11) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** simplify git operations in issues manager workflow ([90055ba](https://github.com/opencitations/crowdsourcing/commit/90055babda6cb914af851b4470ee752169fc2549))
+
 ## [1.4.10](https://github.com/opencitations/crowdsourcing/compare/v1.4.9...v1.4.10) (2025-02-01)
 
 ### Bug Fixes
