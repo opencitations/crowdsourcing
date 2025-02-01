@@ -1,3 +1,9 @@
+## [1.4.1](https://github.com/opencitations/crowdsourcing/compare/v1.4.0...v1.4.1) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** add automatic commit of validation reports index ([1f897bd](https://github.com/opencitations/crowdsourcing/commit/1f897bdfcf69d39fc9a07976a026c43485e41c4f))
+
 ## [1.4.0](https://github.com/opencitations/crowdsourcing/compare/v1.3.0...v1.4.0) (2025-02-01)
 
 ### Features
