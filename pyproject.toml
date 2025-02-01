@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "crowdsourcing"
-version = "1.4.5"
+version = "1.4.6"
 description = "A GitHub bot that automatically validates and processes OpenCitations data deposits submitted via issues. It uses the oc_validator library to check syntax and format, labels issues based on validation results, and manages monthly ingestion into CROCI and OpenCitations Meta with Zenodo integration for provenance tracking"
 authors = ["arcangelo7 <arcangelomas@gmail.com>"]
 license = "ISC License"

@@ -1,3 +1,9 @@
+## [1.4.6](https://github.com/opencitations/crowdsourcing/compare/v1.4.5...v1.4.6) (2025-02-01)
+
+### Bug Fixes
+
+* **workflows:** unify concurrency control for validation reports ([91134c8](https://github.com/opencitations/crowdsourcing/commit/91134c8afe11b02e5795749ba46aefaf693a2032))
+
 ## [1.4.5](https://github.com/opencitations/crowdsourcing/compare/v1.4.4...v1.4.5) (2025-02-01)
 
 ### Bug Fixes
