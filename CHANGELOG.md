@@ -1,3 +1,9 @@
+## [1.4.0](https://github.com/opencitations/crowdsourcing/compare/v1.3.0...v1.4.0) (2025-02-01)
+
+### Features
+
+* improve Zenodo file handling and user experience ([21045bb](https://github.com/opencitations/crowdsourcing/commit/21045bbbe7d0019f6ac4087be4941affdce2dbbc))
+
 ## [1.3.0](https://github.com/opencitations/crowdsourcing/compare/v1.2.2...v1.3.0) (2025-01-31)
 
 ### Features
