@@ -1,3 +1,9 @@
+## [1.4.4](https://github.com/opencitations/crowdsourcing/compare/v1.4.3...v1.4.4) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** improve concurrent execution handling ([bcc871a](https://github.com/opencitations/crowdsourcing/commit/bcc871a5dff592562d983a3860f4dcd122452d37))
+
 ## [1.4.3](https://github.com/opencitations/crowdsourcing/compare/v1.4.2...v1.4.3) (2025-02-01)
 
 ### Bug Fixes
