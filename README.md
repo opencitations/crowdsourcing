@@ -86,6 +86,8 @@ When you submit an issue, the data is automatically validated using the [oc_vali
 
 **Important**: All citations must have corresponding metadata entries. This means that both citing and cited entities in the citations CSV must have their metadata described in the metadata CSV. Issues that contain citations without corresponding metadata entries will be automatically rejected.
 
+If a bibliographic reference does not have any associated identifiers, you can use a temporary identifier for deduplication purposes. This temporary identifier should be formatted as `temp:` followed by any string (e.g., `temp:1`). These temporary identifiers are only used for citation deduplication during the deposit process and are not stored in OpenCitations Meta.
+
 ## Next steps
 
 OpenCitations will ingest valid deposits once a month. The issues will be labeled as follows:
