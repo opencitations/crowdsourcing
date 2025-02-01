@@ -41,5 +41,5 @@ jobs:
         run: |
           git config --global user.name "crocibot"
           git config --global user.email "contact@opencitations.net"
-          git add docs/validation_reports/index.json
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update validation reports index [skip ci]" && git push)
+          git add docs/validation_reports/
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update validation reports [skip ci]" && git push)
