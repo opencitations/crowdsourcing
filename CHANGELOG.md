@@ -1,3 +1,9 @@
+## [1.4.5](https://github.com/opencitations/crowdsourcing/compare/v1.4.4...v1.4.5) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** improve git operations reliability ([6b0ddd4](https://github.com/opencitations/crowdsourcing/commit/6b0ddd40d9c6a04d548af4477d00ac0257510750))
+
 ## [1.4.4](https://github.com/opencitations/crowdsourcing/compare/v1.4.3...v1.4.4) (2025-02-01)
 
 ### Bug Fixes
