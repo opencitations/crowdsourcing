@@ -1,3 +1,9 @@
+## [1.4.3](https://github.com/opencitations/crowdsourcing/compare/v1.4.2...v1.4.3) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** remove validation reports from GitHub after Zenodo archival ([5712639](https://github.com/opencitations/crowdsourcing/commit/57126399caef60c91ecdd549a228b233aa4bc1ff))
+
 ## [1.4.2](https://github.com/opencitations/crowdsourcing/compare/v1.4.1...v1.4.2) (2025-02-01)
 
 ### Bug Fixes
