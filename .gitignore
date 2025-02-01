@@ -2,6 +2,7 @@
 __pycache__/
 id_value.json
 .env
+.secrets
 .coverage
 meta_output_test/
 virtuoso-opensource/
@@ -10,3 +11,4 @@ ts_upload_cache.json
 crowdsourcing_ingestion_data/
 gently_run.sh
 gently_stop.sh
+event.json
