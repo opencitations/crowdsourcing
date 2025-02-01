@@ -8,6 +8,12 @@
 
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta).
 
+## Workflow Overview
+
+The following diagram illustrates the complete workflow of the crowdsourcing process:
+
+![OpenCitations Crowdsourcing Workflow](docs/workflow.png)
+
 ## How to make a deposit
 
 1. Create a new issue in this repository
