@@ -24,6 +24,11 @@ jobs:
       - name: List files in the repository
         uses: actions/checkout@v4
       
+      - name: Configure Git
+        run: |
+          git config --global user.name "crocibot"
+          git config --global user.email "contact@opencitations.net"
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -44,12 +49,11 @@ jobs:
 
       - name: Commit validation changes
         run: |
-          git config --global user.name "crocibot"
-          git config --global user.email "contact@opencitations.net"
-          git add docs/validation_reports/
+          git add -A docs/validation_reports/
           git stash
           git pull --rebase origin main
           git stash pop
+          git add -A docs/validation_reports/
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update validation reports [skip ci]" && git push)
 
       - name: Archive reports
@@ -57,10 +61,9 @@ jobs:
 
       - name: Commit archive changes
         run: |
-          git config --global user.name "crocibot"
-          git config --global user.email "contact@opencitations.net"
           git add -A docs/validation_reports/
           git stash
           git pull --rebase origin main
           git stash pop
+          git add -A docs/validation_reports/
           git diff --quiet && git diff --staged --quiet || (git commit -m "chore: archive validation reports" && git push)
