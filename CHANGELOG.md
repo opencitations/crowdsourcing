@@ -1,3 +1,9 @@
+## [1.4.12](https://github.com/opencitations/crowdsourcing/compare/v1.4.11...v1.4.12) (2025-02-01)
+
+### Bug Fixes
+
+* **ci:** handle no-changes scenario in GitHub Actions workflow ([50eddfa](https://github.com/opencitations/crowdsourcing/commit/50eddfaa0e9c5e099c62033b5645c902b3e54f18))
+
 ## [1.4.11](https://github.com/opencitations/crowdsourcing/compare/v1.4.10...v1.4.11) (2025-02-01)
 
 ### Bug Fixes
