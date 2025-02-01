@@ -256,7 +256,7 @@ def validate(
         logger.error(f"Validation error: {e}")
         return (
             False,
-            f"Error validating data: {str(e)}. Please ensure both metadata and citations are valid CSVs following the required format.",
+            "Please ensure both metadata and citations are valid CSVs following the required format. For more information about the correct format, please check our guide: https://github.com/opencitations/crowdsourcing/blob/main/README.md",
         )
     finally:
         # Clean up temporary files in all cases

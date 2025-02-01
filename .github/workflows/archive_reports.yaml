@@ -37,12 +37,12 @@ jobs:
       - name: Check and archive reports
         run: poetry run python3 crowdsourcing/archive_reports.py
 
-      # Update index.json after archival
+      # Update index.json and handle report deletions
       - name: Commit changes
         if: always()  # Run even if previous steps fail
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add docs/validation_reports/index.json
-          git commit -m "chore: update validation reports index" || echo "No changes to commit"
+          git add -A docs/validation_reports/  # Track all changes including deletions
+          git commit -m "chore: update validation reports and index" || echo "No changes to commit"
           git push || echo "No changes to push" 

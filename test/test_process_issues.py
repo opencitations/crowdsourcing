@@ -329,9 +329,10 @@ INVALID_SEPARATOR
         )
 
         self.assertFalse(is_valid)
-        self.assertIn("Error validating data", message)
-        self.assertIn("not processable", message)
-        self.assertIn("META-CSV nor CITS-CSV basic structure", message)
+        self.assertIn(
+            "Please ensure both metadata and citations are valid CSVs", message
+        )
+        self.assertIn("check our guide", message)
 
     def test_validation_with_both_validation_files(self):
         """Test validation when both metadata and citations have validation errors"""
@@ -352,9 +353,10 @@ INVALID_SEPARATOR
         )
 
         self.assertFalse(is_valid)
-        self.assertIn("Error validating data", message)
-        self.assertIn("not processable", message)
-        self.assertIn("META-CSV nor CITS-CSV basic structure", message)
+        self.assertIn(
+            "Please ensure both metadata and citations are valid CSVs", message
+        )
+        self.assertIn("check our guide", message)
 
     @patch("crowdsourcing.process_issues.archive_manager")
     def test_validation_reads_validation_files(self, mock_archive_manager):
