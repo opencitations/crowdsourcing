@@ -1,3 +1,9 @@
+## [1.4.13](https://github.com/opencitations/crowdsourcing/compare/v1.4.12...v1.4.13) (2025-02-06)
+
+### Bug Fixes
+
+* update OC Validator to support temp and local identifiers ([9b95285](https://github.com/opencitations/crowdsourcing/commit/9b952857dd81c0af28088c72f446f909e33c5926))
+
 ## [1.4.12](https://github.com/opencitations/crowdsourcing/compare/v1.4.11...v1.4.12) (2025-02-01)
 
 ### Bug Fixes
