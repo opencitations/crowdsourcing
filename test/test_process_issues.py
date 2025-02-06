@@ -94,6 +94,34 @@ class TestTitleValidation(unittest.TestCase):
         print("message", message)
         self.assertEqual(message, "The identifier schema 'issn' is not supported")
 
+    def test_valid_temp_id_title(self):
+        """Test that a valid temporary ID title is accepted"""
+        title = "deposit journal.com temp:12345"
+        is_valid, message = _validate_title(title)
+        self.assertTrue(is_valid)
+        self.assertEqual(message, "")
+
+    def test_valid_local_id_title(self):
+        """Test that a valid local ID title is accepted"""
+        title = "deposit journal.com local:record123"
+        is_valid, message = _validate_title(title)
+        self.assertTrue(is_valid)
+        self.assertEqual(message, "")
+
+    def test_invalid_temp_id_format(self):
+        """Test that invalid temporary ID format is rejected"""
+        title = "deposit journal.com temp12345"  # Missing colon
+        is_valid, message = _validate_title(title)
+        self.assertFalse(is_valid)
+        self.assertIn("title of the issue was not structured correctly", message)
+
+    def test_invalid_local_id_format(self):
+        """Test that invalid local ID format is rejected"""
+        title = "deposit journal.com local.record123"  # Wrong separator
+        is_valid, message = _validate_title(title)
+        self.assertFalse(is_valid)
+        self.assertIn("title of the issue was not structured correctly", message)
+
 
 class TestValidation(unittest.TestCase):
     def setUp(self):
@@ -126,6 +154,7 @@ class TestValidation(unittest.TestCase):
         """Test that a valid issue with correct title and CSV data is accepted"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","A Study on Electric Properties","Smith, John","2024","Journal of Physics","5","2","100-120","journal article","Test Publisher",""
 "doi:10.1007/978-3-662-07918-8_3","Influence of Dielectric Properties, State, and Electrodes on Electric Strength","Ushakov, Vasily Y.","2004","Insulation of High-Voltage Equipment [isbn:9783642058530 isbn:9783662079188]","","","27-82","book chapter","Springer Science and Business Media LLC [crossref:297]",""
 "doi:10.1016/0021-9991(73)90147-2","Flux-corrected transport. I. SHASTA, a fluid transport algorithm that works","Boris, Jay P; Book, David L","1973-01","Journal of Computational Physics [issn:0021-9991]","11","1","38-69","journal article","Elsevier BV [crossref:78]",""
 ===###===@@@===
@@ -601,6 +630,65 @@ INVALID_SEPARATOR
         self.assertEqual(
             matching_files[0], f"validation_issue_{test_issue_number}.html"
         )
+
+    def test_valid_temp_ids_in_csv(self):
+        """Test that CSV data with temporary IDs is accepted"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"temp:123","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"temp:456","Another Title","Another Author","2024","Test Journal","1","1","11-20","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"temp:123","temp:456\""""
+        is_valid, message = validate(
+            title,
+            body,
+            "136",
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
+        self.assertTrue(is_valid)
+        self.assertIn("Thank you for your contribution", message)
+
+    def test_valid_local_ids_in_csv(self):
+        """Test that CSV data with local IDs is accepted"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"local:rec1","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"local:rec2","Another Title","Another Author","2024","Test Journal","1","1","11-20","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"local:rec1","local:rec2\""""
+        is_valid, message = validate(
+            title,
+            body,
+            "137",
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
+        self.assertTrue(is_valid)
+        self.assertIn("Thank you for your contribution", message)
+
+    def test_mixed_identifier_types_in_csv(self):
+        """Test that CSV data with mixed identifier types (DOI, temp, local) is accepted"""
+        title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
+"doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"temp:123","Another Title","Another Author","2024","Test Journal","1","1","11-20","journal article","Test Publisher",""
+"local:rec1","Third Title","Third Author","2024","Test Journal","1","1","21-30","journal article","Test Publisher",""
+===###===@@@===
+"citing_id","cited_id"
+"doi:10.1007/s42835-022-01029-y","temp:123"
+"temp:123","local:rec1\""""
+        is_valid, message = validate(
+            title,
+            body,
+            "138",
+            validation_output_dir=self.validation_output,
+            validation_reports_dir=self.validation_reports,
+        )
+        self.assertTrue(is_valid)
+        self.assertIn("Thank you for your contribution", message)
 
 
 class TestUserValidation(unittest.TestCase):
@@ -1412,6 +1500,7 @@ class TestProcessOpenIssues(unittest.TestCase):
             "title": "deposit journal.com doi:10.1007/s42835-022-01029-y",
             "body": """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
 "doi:10.1007/s42835-022-01029-y","Test Title","Test Author","2024","Test Journal","1","1","1-10","journal article","Test Publisher",""
+"doi:10.1007/978-3-030-00668-6_8","Cited Paper","Another Author","2024","Another Journal","2","2","20-30","journal article","Test Publisher",""
 ===###===@@@===
 "citing_id","cited_id"
 "doi:10.1007/s42835-022-01029-y","doi:10.1007/978-3-030-00668-6_8\"""",

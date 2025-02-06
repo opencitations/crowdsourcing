@@ -59,7 +59,7 @@ def _validate_title(title: str) -> Tuple[bool, str]:
     if not basic_format:
         return (
             False,
-            'The title of the issue was not structured correctly. Please, follow this format: deposit {domain name of journal} {doi or other supported identifier}. For example "deposit localhost:330 doi:10.1007/978-3-030-00668-6_8". The following identifiers are currently supported: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, and openalex',
+            'The title of the issue was not structured correctly. Please, follow this format: deposit {domain name of journal} {doi or other supported identifier}. For example "deposit localhost:330 doi:10.1007/978-3-030-00668-6_8". The following identifiers are currently supported: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, openalex, temp, and local',
         )
 
     match = re.search(
@@ -82,6 +82,13 @@ def _validate_title(title: str) -> Tuple[bool, str]:
         "wikipedia": WikipediaManager,
         "openalex": OpenAlexManager,
     }
+
+    # Special handling for temp and local identifiers
+    if identifier_schema in ["temp", "local"]:
+        # For temp and local identifiers, we just check they have some content after the colon
+        if not identifier.strip():
+            return False, f"The {identifier_schema} identifier cannot be empty"
+        return True, ""
 
     manager_class = manager_map.get(identifier_schema)
     if not manager_class:

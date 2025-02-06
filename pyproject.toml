@@ -12,7 +12,7 @@ python = "<3.14,>=3.10"
 oc-ds-converter = "^1.0.4"
 pandas = "^2.2.3"
 requests = "^2.32.3"
-oc-validator = "^0.3.3"
+oc-validator = "^0.3.5"
 oc-meta = "^2.1.1"
 
 
