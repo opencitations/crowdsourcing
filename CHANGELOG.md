@@ -1,3 +1,9 @@
+## [1.5.0](https://github.com/opencitations/crowdsourcing/compare/v1.4.13...v1.5.0) (2025-09-09)
+
+### Features
+
+* add csv,conf speech text ([70edd23](https://github.com/opencitations/crowdsourcing/commit/70edd230368ab56ce11ec84bb21cde1dcc2f4e68))
+
 ## [1.4.13](https://github.com/opencitations/crowdsourcing/compare/v1.4.12...v1.4.13) (2025-02-06)
 
 ### Bug Fixes
