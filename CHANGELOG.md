@@ -1,3 +1,9 @@
+## [1.6.2](https://github.com/opencitations/crowdsourcing/compare/v1.6.1...v1.6.2) (2025-10-11)
+
+### Bug Fixes
+
+* revert to using CrociBot token for issue management ([77ccad9](https://github.com/opencitations/crowdsourcing/commit/77ccad976a42356fa79adff76673246398049484))
+
 ## [1.6.1](https://github.com/opencitations/crowdsourcing/compare/v1.6.0...v1.6.1) (2025-10-11)
 
 ### Bug Fixes
