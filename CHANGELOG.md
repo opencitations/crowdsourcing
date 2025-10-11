@@ -1,3 +1,9 @@
+## [1.7.0](https://github.com/opencitations/crowdsourcing/compare/v1.6.2...v1.7.0) (2025-10-11)
+
+### Features
+
+* skip Zenodo deposit for localhost test issues ([085cb07](https://github.com/opencitations/crowdsourcing/commit/085cb0705edf8bc7ccab16ad70fba9d741dac052))
+
 ## [1.6.2](https://github.com/opencitations/crowdsourcing/compare/v1.6.1...v1.6.2) (2025-10-11)
 
 ### Bug Fixes
