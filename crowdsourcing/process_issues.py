@@ -254,10 +254,16 @@ def validate(
             return False, error_message
 
         # If no validation errors, return success
-        return (
-            True,
-            "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [OpenCitations Index](https://opencitations.net/index) and metadata on [OpenCitations Meta](https://opencitations.net/meta)",
-        )
+        # Check if this is a test deposit (localhost domain)
+        domain_match = re.search(r"deposit\s+(.+?)\s+[a-zA-Z]+:.+", issue_title, re.IGNORECASE)
+        is_test = domain_match and "localhost" in domain_match.group(1).lower()
+
+        if is_test:
+            success_message = "Test deposit validated successfully! This is recognized as a test deposit (localhost domain) and will not be uploaded to Zenodo or processed into OpenCitations Index/Meta. The data has been validated and the issue will be closed."
+        else:
+            success_message = "Thank you for your contribution! OpenCitations just processed the data you provided. The citations will soon be available on the [OpenCitations Index](https://opencitations.net/index) and metadata on [OpenCitations Meta](https://opencitations.net/meta)"
+
+        return (True, success_message)
 
     except Exception as e:
         logger.error(f"Validation error: {e}")
@@ -280,7 +286,7 @@ def validate(
 
 
 def answer(
-    is_valid: bool, message: str, issue_number: str, is_authorized: bool = True
+    is_valid: bool, message: str, issue_number: str, is_authorized: bool = True, is_test: bool = False
 ) -> None:
     """Update issue status and add comment using GitHub REST API.
 
@@ -289,6 +295,7 @@ def answer(
         message: Comment message to add
         issue_number: GitHub issue number to update
         is_authorized: Whether the user is authorized (in safe list)
+        is_test: Whether this is a test issue (localhost domain)
     """
     print(f"Updating issue #{issue_number}")
     # Determine label based on validation and authorization
@@ -296,6 +303,8 @@ def answer(
         label = "rejected"
     elif not is_valid:
         label = "invalid"
+    elif is_test:
+        label = "done"  # Test issues are marked as done since they won't be processed
     else:
         label = "to be processed"
 
@@ -716,7 +725,11 @@ def process_open_issues() -> None:
                 f"Validation result for #{issue_number}: valid={is_valid}, message={message}"
             )
 
-            answer(is_valid, message, issue_number, is_authorized=True)
+            # Check if this is a test issue (localhost domain)
+            domain_match = re.search(r"deposit\s+(.+?)\s+[a-zA-Z]+:.+", issue_title, re.IGNORECASE)
+            is_test = domain_match and "localhost" in domain_match.group(1).lower()
+
+            answer(is_valid, message, issue_number, is_authorized=True, is_test=is_test)
             print(f"Posted answer to issue #{issue_number}")
 
             if is_valid:

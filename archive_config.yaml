@@ -1,5 +1,5 @@
 validation_reports:
-  max_reports_before_archive: 2  # Maximum number of reports before triggering archival
+  max_reports_before_archive: 100  # Maximum number of reports before triggering archival
   reports_dir: "docs/validation_reports"  # Directory containing the reports
   index_file: "docs/validation_reports/index.json"  # Mapping file for redirections
 

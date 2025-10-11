@@ -1678,7 +1678,9 @@ class TestProcessOpenIssues(unittest.TestCase):
         mock_answer.assert_called_once()
         args, kwargs = mock_answer.call_args
         self.assertTrue(args[0])  # is_valid
+        self.assertIn("Test deposit validated successfully", args[1])  # message indicates test
         self.assertEqual(args[2], "1")  # issue_number
+        self.assertTrue(kwargs["is_test"])  # is_test flag is True
 
         # Verify Zenodo deposit was NOT called
         mock_deposit.assert_not_called()
