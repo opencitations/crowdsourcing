@@ -1,8 +1,14 @@
 {
-  "github_reports": {
-    "validation_issue_13.html": "https://opencitations.github.io/crowdsourcing/validation_reports/validation_issue_13.html",
-    "validation_issue_14.html": "https://opencitations.github.io/crowdsourcing/validation_reports/validation_issue_14.html"
+  "github_reports": {},
+  "zenodo_reports": {
+    "validation_issue_13.html": {
+      "url": "https://sandbox.zenodo.org/api/records/350971/files/validation_issue_13.html/content",
+      "doi": "https://doi.org/10.5072/zenodo.350971"
+    },
+    "validation_issue_14.html": {
+      "url": "https://sandbox.zenodo.org/api/records/350971/files/validation_issue_14.html/content",
+      "doi": "https://doi.org/10.5072/zenodo.350971"
+    }
   },
-  "zenodo_reports": {},
-  "last_archive": null
+  "last_archive": "2025-10-11T13:27:00.505055"
 }
