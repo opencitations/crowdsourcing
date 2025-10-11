@@ -1,3 +1,10 @@
+## [1.6.1](https://github.com/opencitations/crowdsourcing/compare/v1.6.0...v1.6.1) (2025-10-11)
+
+### Bug Fixes
+
+* add issues write permission to GitHub Actions workflow ([bfc7752](https://github.com/opencitations/crowdsourcing/commit/bfc77520bcd0f6f660ccc45b55ee29363a5d4832))
+* use automatic GITHUB_TOKEN instead of personal token ([c303501](https://github.com/opencitations/crowdsourcing/commit/c303501f0d53602b939142047d9559ec5196e85c))
+
 ## [1.6.0](https://github.com/opencitations/crowdsourcing/compare/v1.5.0...v1.6.0) (2025-10-11)
 
 ### Features
