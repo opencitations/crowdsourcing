@@ -1,3 +1,13 @@
+## [1.8.0](https://github.com/opencitations/crowdsourcing/compare/v1.7.0...v1.8.0) (2025-10-11)
+
+### Features
+
+* add test deposit support and improve documentation ([15edef4](https://github.com/opencitations/crowdsourcing/commit/15edef472dfa12584509e574bd030949362d7123))
+
+### Bug Fixes
+
+* prevent tests from modifying production validation index ([10ac2a4](https://github.com/opencitations/crowdsourcing/commit/10ac2a455811470a88e73829153c6a3e42a0dd1b))
+
 ## [1.7.0](https://github.com/opencitations/crowdsourcing/compare/v1.6.2...v1.7.0) (2025-10-11)
 
 ### Features
