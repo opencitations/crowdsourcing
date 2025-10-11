@@ -902,6 +902,7 @@ class TestGitHubAPI(unittest.TestCase):
                 "user": {"login": "test-user"},
                 "created_at": "2024-01-01T00:00:00Z",
                 "html_url": "https://github.com/test-org/test-repo/issues/1",
+                "labels": [],
             }
         ]
 
@@ -933,7 +934,7 @@ class TestGitHubAPI(unittest.TestCase):
         mock_get.assert_called_once()
         args, kwargs = mock_get.call_args
         self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
-        self.assertEqual(kwargs["params"]["labels"], "deposit")
+        self.assertEqual(kwargs["params"]["state"], "open")
 
     @patch("requests.get")
     def test_get_open_issues_404(self, mock_get):
@@ -967,12 +968,13 @@ class TestGitHubAPI(unittest.TestCase):
         success_response.status_code = 200
         success_response.json.return_value = [
             {
-                "title": "Test Issue",
+                "title": "deposit Test Issue",
                 "body": "Test Body",
                 "number": 1,
                 "user": {"login": "test-user"},
                 "created_at": "2024-01-01T00:00:00Z",
                 "html_url": "https://github.com/test/1",
+                "labels": [],
             }
         ]
 
@@ -984,7 +986,7 @@ class TestGitHubAPI(unittest.TestCase):
 
         # Verify rate limit handling
         self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0]["title"], "Test Issue")
+        self.assertEqual(issues[0]["title"], "deposit Test Issue")
 
         # Verify sleep was called with exactly 30 seconds
         mock_sleep.assert_called_once_with(30)
@@ -993,7 +995,7 @@ class TestGitHubAPI(unittest.TestCase):
         self.assertEqual(mock_get.call_count, 2)
         for call in mock_get.call_args_list:
             args, kwargs = call
-            self.assertEqual(kwargs["params"]["labels"], "deposit")
+            self.assertEqual(kwargs["params"]["state"], "open")
             self.assertEqual(kwargs["headers"]["Authorization"], "Bearer fake-token")
 
     @patch("requests.get")
@@ -1050,12 +1052,13 @@ class TestGitHubAPI(unittest.TestCase):
         success_response.status_code = 200
         success_response.json.return_value = [
             {
-                "title": "Test Issue",
+                "title": "deposit Test Issue",
                 "body": "Test Body",
                 "number": 1,
                 "user": {"login": "test-user"},
                 "created_at": "2024-01-01T00:00:00Z",
                 "html_url": "https://github.com/test/1",
+                "labels": [],
             }
         ]
 
@@ -1067,7 +1070,7 @@ class TestGitHubAPI(unittest.TestCase):
 
         # Verify rate limit handling
         self.assertEqual(len(issues), 1)
-        self.assertEqual(issues[0]["title"], "Test Issue")
+        self.assertEqual(issues[0]["title"], "deposit Test Issue")
 
         # Verify sleep was NOT called since rate limit was already expired
         mock_sleep.assert_not_called()

@@ -12,3 +12,4 @@ crowdsourcing_ingestion_data/
 gently_run.sh
 gently_stop.sh
 event.json
+CLAUDE.md

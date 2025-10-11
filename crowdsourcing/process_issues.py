@@ -574,7 +574,11 @@ def is_in_safe_list(user_id: int) -> bool:
 
 
 def get_open_issues() -> List[dict]:
-    """Fetch open issues with 'deposit' label using GitHub REST API."""
+    """Fetch open issues with title starting with 'deposit ' that have no labels.
+
+    Issues without labels have not been processed yet by the bot.
+    Once processed, the bot adds a label (rejected, invalid, to be processed).
+    """
     print("Attempting to fetch open issues...")
 
     # Get repository info from GitHub Actions environment
@@ -594,10 +598,7 @@ def get_open_issues() -> List[dict]:
             print(f"Attempt {attempt + 1} of {MAX_RETRIES}")
             response = requests.get(
                 f"https://api.github.com/repos/{repository}/issues",
-                params={
-                    "state": "open",
-                    "labels": "deposit",
-                },
+                params={"state": "open"},
                 headers=headers,
                 timeout=30,
             )
@@ -606,18 +607,31 @@ def get_open_issues() -> List[dict]:
 
             if response.status_code == 200:
                 issues = response.json()
-                print(f"Found {len(issues)} issues")
-                return [
-                    {
+                print(f"Found {len(issues)} total open issues")
+
+                # Filter issues by title and absence of labels
+                deposit_issues = []
+                for issue in issues:
+                    # Skip if title doesn't start with 'deposit '
+                    if not issue["title"].startswith("deposit "):
+                        continue
+
+                    # Skip if issue already has labels (already processed by bot)
+                    if issue.get("labels"):
+                        print(f"Skipping issue #{issue['number']} - already has labels")
+                        continue
+
+                    deposit_issues.append({
                         "title": issue["title"],
                         "body": issue["body"],
                         "number": str(issue["number"]),
                         "author": {"login": issue["user"]["login"]},
                         "createdAt": issue["created_at"],
                         "url": issue["html_url"],
-                    }
-                    for issue in issues
-                ]
+                    })
+
+                print(f"Found {len(deposit_issues)} deposit issues to process")
+                return deposit_issues
 
             elif response.status_code == 404:
                 print("Repository or endpoint not found (404)")

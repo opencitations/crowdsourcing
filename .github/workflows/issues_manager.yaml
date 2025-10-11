@@ -10,8 +10,6 @@ concurrency:
 
 jobs:
   Process:
-    # Run only when the issue has the 'deposit' label
-    if: contains(github.event.issue.labels.*.name, 'deposit')
     runs-on: ubuntu-22.04
     permissions:
       contents: write  # Add write permission to commit and push
@@ -21,6 +19,15 @@ jobs:
       ZENODO_SANDBOX: ${{ secrets.ZENODO_SANDBOX }}
       ENVIRONMENT: ${{ vars.ENVIRONMENT || 'development' }}
     steps:
+      - name: Validate issue title format
+        run: |
+          TITLE="${{ github.event.issue.title }}"
+          if ! echo "$TITLE" | grep -qP '^deposit\s+\S+\s+[a-zA-Z]+:.+$'; then
+            echo "Issue title does not match expected format: deposit {domain} {schema}:{identifier}"
+            exit 0
+          fi
+          echo "Issue title format is valid"
+
       - name: List files in the repository
         uses: actions/checkout@v4
       

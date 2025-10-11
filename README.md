@@ -17,11 +17,10 @@ The following diagram illustrates the complete workflow of the crowdsourcing pro
 ## How to make a deposit
 
 1. Create a new issue in this repository
-2. Label the issue as "deposit" (this is required for the automated processing)
-3. Format your issue title as: `deposit {domain name of journal} {identifier}`
+2. Format your issue title as: `deposit {domain name of journal} {identifier}`
    - For example: `deposit localhost:330 doi:10.1007/978-3-030-00668-6_8`
    - Supported identifiers: doi, isbn, pmid, pmcid, url, wikidata, wikipedia, and openalex
-4. In the issue body, include:
+3. In the issue body, include:
    - Your metadata CSV
    - The separator `===###===@@@===`
    - Your citations CSV
@@ -29,11 +28,11 @@ The following diagram illustrates the complete workflow of the crowdsourcing pro
 The automated system will:
 1. Check if you are in the safe list
 2. Validate your data format
-3. If invalid, comment with validation errors and close the issue
+3. If invalid, add the "invalid" label, comment with validation errors, and close the issue
 4. If valid:
-   - Label the issue as "to be processed"
+   - Add the "to be processed" label
    - Process and ingest your deposit during the next monthly update
-   - Close the issue and label it as "done" after processing
+   - Update the label to "done" after processing
 
 An example can be found at https://github.com/opencitations/crowdsourcing/issues/1
 
@@ -76,7 +75,7 @@ The body consists of the metadata of the article and the citations in CSV. The t
 "doi:10.1007/s42835-022-01029-y","doi:10.1016/0021-9991(82)90026-2"
 ```
 
-The complete documentation on how to structure tables for metadata and citations can be read in [`docs/csv_documentation.pdf`](https://github.com/opencitations/crowdsourcing/blob/main/docs/csv_documentation.pdf), while for a shortened version please consult the following proceeding article:
+The complete documentation on how to structure tables for metadata and citations can be read in [`docs/csv_documentation-v1_1_1.pdf`](https://github.com/opencitations/crowdsourcing/blob/main/docs/csv_documentation-v1_1_1.pdf), while for a shortened version please consult the following proceeding article:
 
 > Massari, A., & Heibi, I. (2022). How to structure citations data and bibliographic metadata in the OpenCitations accepted format. Proceedings of the Workshop on Understanding LIterature References in Academic Full TExt, 3220. [http://ceur-ws.org/Vol-3220/invited-talk2.pdf](http://ceur-ws.org/Vol-3220/invited-talk2.pdf)
 
