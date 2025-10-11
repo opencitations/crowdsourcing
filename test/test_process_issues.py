@@ -592,7 +592,8 @@ INVALID_SEPARATOR
             message,
         )
 
-    def test_validation_report_issue_number(self):
+    @patch("crowdsourcing.process_issues.archive_manager")
+    def test_validation_report_issue_number(self, mock_archive_manager):
         """Test that validation report filename contains correct issue number"""
         title = "deposit journal.com doi:10.1007/s42835-022-01029-y"
         body = """"id","title","author","pub_date","venue","volume","issue","page","type","publisher","editor"
