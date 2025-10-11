@@ -243,6 +243,7 @@ WRONG_SEPARATOR
         result = get_data_to_store(title, body, created_at, had_primary_source, user_id)
 
         self.assertEqual(result["data"]["title"], title)
+        self.assertEqual(result["data"]["domain"], "journal.com")
         self.assertEqual(len(result["data"]["metadata"]), 1)
         self.assertEqual(len(result["data"]["citations"]), 1)
         self.assertEqual(result["provenance"]["generatedAtTime"], created_at)
@@ -1654,6 +1655,64 @@ class TestProcessOpenIssues(unittest.TestCase):
 
         self.assertEqual(str(context.exception), "Zenodo deposit error")
         mock_deposit.assert_called_once()
+
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.answer")
+    def test_process_localhost_issue_skips_zenodo(
+        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
+    ):
+        """Test that issues with localhost domain are not deposited to Zenodo"""
+        localhost_issue = self.sample_issue.copy()
+        localhost_issue["title"] = "deposit localhost:330 doi:10.1007/s42835-022-01029-y"
+
+        mock_get_issues.return_value = [localhost_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+
+        process_open_issues()
+
+        mock_answer.assert_called_once()
+        args, kwargs = mock_answer.call_args
+        self.assertTrue(args[0])  # is_valid
+        self.assertEqual(args[2], "1")  # issue_number
+
+        # Verify Zenodo deposit was NOT called
+        mock_deposit.assert_not_called()
+
+    @patch("crowdsourcing.process_issues.get_open_issues")
+    @patch("crowdsourcing.process_issues.get_user_id")
+    @patch("crowdsourcing.process_issues.is_in_safe_list")
+    @patch("crowdsourcing.process_issues.deposit_on_zenodo")
+    @patch("crowdsourcing.process_issues.answer")
+    def test_process_mixed_localhost_and_production_issues(
+        self, mock_answer, mock_deposit, mock_safe_list, mock_user_id, mock_get_issues
+    ):
+        """Test that only production issues are deposited when mixing localhost and production"""
+        localhost_issue = self.sample_issue.copy()
+        localhost_issue["title"] = "deposit localhost:330 doi:10.1007/s42835-022-01029-y"
+        localhost_issue["number"] = "1"
+
+        production_issue = self.sample_issue.copy()
+        production_issue["title"] = "deposit journal.com doi:10.1007/s42835-022-01029-y"
+        production_issue["number"] = "2"
+
+        mock_get_issues.return_value = [localhost_issue, production_issue]
+        mock_user_id.return_value = 12345
+        mock_safe_list.return_value = True
+
+        process_open_issues()
+
+        # Verify both issues were validated and answered
+        self.assertEqual(mock_answer.call_count, 2)
+
+        # Verify Zenodo deposit was called only once with production data
+        mock_deposit.assert_called_once()
+        deposited_data = mock_deposit.call_args[0][0]
+        self.assertEqual(len(deposited_data), 1)
+        self.assertEqual(deposited_data[0]["data"]["domain"], "journal.com")
 
 
 if __name__ == "__main__":  # pragma: no cover

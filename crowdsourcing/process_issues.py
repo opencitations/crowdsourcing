@@ -423,6 +423,10 @@ def get_data_to_store(
         ValueError: If issue body cannot be split or CSV data is invalid
     """
     try:
+        # Extract domain from title (e.g., "deposit localhost:330 doi:10.1234/..." -> "localhost:330")
+        domain_match = re.search(r"deposit\s+(.+?)\s+[a-zA-Z]+:.+", issue_title, re.IGNORECASE)
+        domain = domain_match.group(1) if domain_match else ""
+
         # Split and clean the data sections
         metadata_csv, citations_csv = [
             section.strip() for section in issue_body.split("===###===@@@===")
@@ -438,6 +442,7 @@ def get_data_to_store(
         return {
             "data": {
                 "title": issue_title,
+                "domain": domain,
                 "metadata": metadata,
                 "citations": citations,
             },
@@ -727,13 +732,29 @@ def process_open_issues() -> None:
                     continue
 
         if data_to_store:
-            print(f"Attempting to deposit {len(data_to_store)} items to Zenodo")
-            try:
-                deposit_on_zenodo(data_to_store)
-                print("Successfully deposited data to Zenodo")
-            except Exception as e:
-                print(f"ERROR: Failed to deposit data to Zenodo: {e}")
-                raise
+            # Filter out test issues (those with "localhost" in domain)
+            production_data = [
+                item for item in data_to_store
+                if "localhost" not in item.get("data", {}).get("domain", "").lower()
+            ]
+            test_data = [
+                item for item in data_to_store
+                if "localhost" in item.get("data", {}).get("domain", "").lower()
+            ]
+
+            if test_data:
+                print(f"Skipping Zenodo deposit for {len(test_data)} test issue(s) with localhost domain")
+
+            if production_data:
+                print(f"Attempting to deposit {len(production_data)} production items to Zenodo")
+                try:
+                    deposit_on_zenodo(production_data)
+                    print("Successfully deposited data to Zenodo")
+                except Exception as e:
+                    print(f"ERROR: Failed to deposit data to Zenodo: {e}")
+                    raise
+            else:
+                print("No production data to deposit (all issues are test issues with localhost domain)")
 
     except Exception as e:
         print(f"ERROR: Processing issues: {e}")
