@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-22.04
     permissions:
       contents: write  # Add write permission to commit and push
+      issues: write    # Add permission to manage issues (labels, comments, close)
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
       ZENODO_PRODUCTION: ${{ secrets.ZENODO_PRODUCTION }}
