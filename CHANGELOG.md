@@ -1,3 +1,9 @@
+## [1.6.0](https://github.com/opencitations/crowdsourcing/compare/v1.5.0...v1.6.0) (2025-10-11)
+
+### Features
+
+* remove deposit label requirement for users ([5016f99](https://github.com/opencitations/crowdsourcing/commit/5016f99826c0b209b38ef6087142e80c6b6481f2))
+
 ## [1.5.0](https://github.com/opencitations/crowdsourcing/compare/v1.4.13...v1.5.0) (2025-09-09)
 
 ### Features
