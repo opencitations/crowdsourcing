@@ -13,3 +13,24 @@ gently_run.sh
 gently_stop.sh
 event.json
 CLAUDE.md
+
+# LaTeX compilation files
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.bcf
+*.run.xml
+*.nav
+*.snm
+*.vrb
+*.dvi
+*.ps
+docs/source/main.pdf
