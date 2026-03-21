@@ -1,3 +1,9 @@
+## [1.9.0](https://github.com/opencitations/crowdsourcing/compare/v1.8.0...v1.9.0) (2026-03-21)
+
+### Features
+
+* add REUSE 3.3 spec compliance ([6a7703a](https://github.com/opencitations/crowdsourcing/commit/6a7703a0cd25ce9815b45a1a3174454eafccab41))
+
 <!--
 SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
 
