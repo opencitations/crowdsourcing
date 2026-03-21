@@ -9,8 +9,8 @@ SPDX-License-Identifier: ISC
 
 [<img src="https://img.shields.io/badge/powered%20by-OpenCitations-%239931FC?labelColor=2D22DE" />](http://opencitations.net)
 [![Tests](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml)
-![Coverage](https://byob.yarr.is/arcangelo7/badges/opencitations-crowdsourcing-coverage)
-![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
+[![Coverage](https://opencitations.github.io/crowdsourcing/coverage/coverage-badge.svg)](https://opencitations.github.io/crowdsourcing/coverage/)
+![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13-blue?logo=python&logoColor=white)
 ![UV](https://img.shields.io/badge/uv-package%20manager-blueviolet?logo=uv&logoColor=white)
 [![REUSE](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml)
 
