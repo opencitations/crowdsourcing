@@ -8,7 +8,7 @@ on:
     types: [opened, edited]
 
 # Ensure only one issue is processed at a time
-concurrency: 
+concurrency:
   group: issue-processing
   cancel-in-progress: false
 
@@ -31,30 +31,28 @@ jobs:
           echo "Issue title format is valid"
 
       - name: List files in the repository
-        uses: actions/checkout@v4
-      
+        uses: actions/checkout@v6
+
       - name: Configure Git
         run: |
           git config --global user.name "crocibot"
           git config --global user.email "contact@opencitations.net"
-      
+
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.10'
-          
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@v7
         with:
-          version: 1.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-          
+          enable-cache: true
+
       - name: Install dependencies
-        run: poetry install --no-interaction --only main
-        
+        run: uv sync --locked --no-dev
+
       - name: Process and validate the issue
-        run: poetry run python3 crowdsourcing/process_issues.py
+        run: uv run python3 crowdsourcing/process_issues.py
 
       - name: Commit validation changes
         run: |
@@ -67,7 +65,7 @@ jobs:
           fi
 
       - name: Archive reports
-        run: poetry run python3 crowdsourcing/archive_reports.py
+        run: uv run python3 crowdsourcing/archive_reports.py
 
       - name: Commit archive changes
         run: |

@@ -1,30 +1,32 @@
-[tool.poetry]
+[project]
 name = "crowdsourcing"
 version = "1.9.0"
 description = "A GitHub bot that automatically validates and processes OpenCitations data deposits submitted via issues. It uses the oc_validator library to check syntax and format, labels issues based on validation results, and manages monthly ingestion into CROCI and OpenCitations Meta with Zenodo integration for provenance tracking"
-authors = ["arcangelo7 <arcangelomas@gmail.com>"]
-license = "ISC License"
 readme = "README.md"
-packages = [{include = "crowdsourcing"}]
+requires-python = ">=3.10, <3.14"
+license = "ISC"
+authors = [
+    { name = "Arcangelo Massari", email = "arcangelo.massari@unibo.it" },
+]
+dependencies = [
+    "oc-ds-converter>=1.0.4",
+    "oc-meta>=2.1.3",
+    "oc-validator>=0.3.5",
+    "pandas>=2.2.3",
+    "requests>=2.32.3",
+]
 
-[tool.poetry.dependencies]
-python = "<3.14,>=3.10"
-oc-ds-converter = "^1.0.4"
-pandas = "^2.2.3"
-requests = "^2.32.3"
-oc-validator = "^0.3.5"
-oc-meta = "^2.1.3"
-
-
-[tool.poetry.group.dev.dependencies]
-isort = "^6.0.0"
-python-dotenv = "^1.0.1"
-coverage = "^7.6.10"
-reuse = "^6.2.0"
-
-[tool.poetry.scripts]
+[project.scripts]
 meta-process = "scripts.run_meta_process:main"
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.6.10",
+    "isort>=6.0.0",
+    "python-dotenv>=1.0.1",
+    "reuse>=6.2.0",
+]

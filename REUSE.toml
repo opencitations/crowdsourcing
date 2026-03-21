@@ -3,6 +3,7 @@ version = 1
 [[annotations]]
 path = [
     ".gitignore",
+    ".python-version",
     ".releaserc.json",
     "_config.yml",
     "archive_config.yaml",
@@ -10,8 +11,8 @@ path = [
     "docs/oc_crowdsourcing_workflow.svg",
     "docs/validation_reports/index.json",
     "meta_config.yaml",
-    "poetry.lock",
     "pyproject.toml",
+    "uv.lock",
     "safe_list.yaml",
 ]
 SPDX-FileCopyrightText = "2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>"

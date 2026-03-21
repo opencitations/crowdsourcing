@@ -16,8 +16,9 @@ jobs:
     name: Release
     # Run only if the Tests workflow was successful
     if: |
-      github.event.workflow_run.conclusion == 'success' && 
-      github.event.workflow_run.name == 'Tests'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.name == 'Tests' &&
+      contains(github.event.workflow_run.head_commit.message, '[release]')
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -27,28 +28,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.4.1
-          virtualenvs-create: true
-          virtualenvs-in-project: true
-
-      - name: Install dependencies
-        run: poetry install --no-interaction --only main
+      - name: Install UV
+        uses: astral-sh/setup-uv@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 'lts/*'
 
@@ -65,4 +54,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release 
+          npx semantic-release

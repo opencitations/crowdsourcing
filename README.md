@@ -11,7 +11,7 @@ SPDX-License-Identifier: ISC
 [![Tests](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/tests.yaml)
 ![Coverage](https://byob.yarr.is/arcangelo7/badges/opencitations-crowdsourcing-coverage)
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
-![Poetry](https://img.shields.io/badge/poetry-1.4.1-beige?logo=poetry&logoColor=white)
+![UV](https://img.shields.io/badge/uv-package%20manager-blueviolet?logo=uv&logoColor=white)
 [![REUSE](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml)
 
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta).
