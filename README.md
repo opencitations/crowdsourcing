@@ -1,3 +1,10 @@
+<!--
+SPDX-FileCopyrightText: 2022 Silvio Peroni <essepuntato@gmail.com>
+SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
+
+SPDX-License-Identifier: ISC
+-->
+
 # Crowdsourcing
 
 [<img src="https://img.shields.io/badge/powered%20by-OpenCitations-%239931FC?labelColor=2D22DE" />](http://opencitations.net)
@@ -5,6 +12,7 @@
 ![Coverage](https://byob.yarr.is/arcangelo7/badges/opencitations-crowdsourcing-coverage)
 ![Python](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12-blue?logo=python&logoColor=white)
 ![Poetry](https://img.shields.io/badge/poetry-1.4.1-beige?logo=poetry&logoColor=white)
+[![REUSE](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml)
 
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta).
 

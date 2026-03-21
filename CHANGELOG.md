@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
+
+SPDX-License-Identifier: ISC
+-->
+
 ## [1.8.0](https://github.com/opencitations/crowdsourcing/compare/v1.7.0...v1.8.0) (2025-10-11)
 
 ### Features
