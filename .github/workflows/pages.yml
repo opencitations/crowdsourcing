@@ -6,7 +6,7 @@ name: Deploy GitHub Pages
 
 on:
   workflow_run:
-    workflows: ["Issues manager"]
+    workflows: ["Issues manager", "Tests"]
     types:
       - completed
 
