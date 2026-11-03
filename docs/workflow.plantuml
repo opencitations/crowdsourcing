@@ -1,6 +1,6 @@
 ' SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
 '
-' SPDX-License-Identifier: ISC
+' SPDX-License-Identifier: CC-BY-4.0
 
 @startuml
 !theme cerulean-outline

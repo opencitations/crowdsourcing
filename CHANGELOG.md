@@ -4,12 +4,6 @@
 
 * add REUSE 3.3 spec compliance ([6a7703a](https://github.com/opencitations/crowdsourcing/commit/6a7703a0cd25ce9815b45a1a3174454eafccab41))
 
-<!--
-SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
-
-SPDX-License-Identifier: ISC
--->
-
 ## [1.8.0](https://github.com/opencitations/crowdsourcing/compare/v1.7.0...v1.8.0) (2025-10-11)
 
 ### Features

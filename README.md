@@ -2,7 +2,7 @@
 SPDX-FileCopyrightText: 2022 Silvio Peroni <essepuntato@gmail.com>
 SPDX-FileCopyrightText: 2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>
 
-SPDX-License-Identifier: ISC
+SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # Crowdsourcing
@@ -15,6 +15,8 @@ SPDX-License-Identifier: ISC
 [![REUSE](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml/badge.svg)](https://github.com/opencitations/crowdsourcing/actions/workflows/reuse.yml)
 
 In this repository, trusted agents can deposit citations and bibliographic metadata for publication through [OpenCitations Index](https://opencitations.net/index) and [OpenCitations Meta](https://opencitations.net/meta).
+
+Developers: see [CONTRIBUTING.md](CONTRIBUTING.md) for setting up a fork.
 
 ## Workflow Overview
 

@@ -7,8 +7,6 @@ path = [
     ".releaserc.json",
     "_config.yml",
     "archive_config.yaml",
-    "docs/csv_documentation-v1_1_2.pdf",
-    "docs/oc_crowdsourcing_workflow.svg",
     "docs/validation_reports/index.json",
     "meta_config.yaml",
     "pyproject.toml",
@@ -17,3 +15,12 @@ path = [
 ]
 SPDX-FileCopyrightText = "2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>"
 SPDX-License-Identifier = "ISC"
+
+[[annotations]]
+path = [
+    "CHANGELOG.md",
+    "docs/csv_documentation-v1_1_2.pdf",
+    "docs/oc_crowdsourcing_workflow.svg",
+]
+SPDX-FileCopyrightText = "2022-2025 Arcangelo Massari <arcangelo.massari@unibo.it>"
+SPDX-License-Identifier = "CC-BY-4.0"
